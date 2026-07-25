@@ -109,6 +109,29 @@ las tres condiciones, decirlo explícitamente en vez de dejar la sección
 vacía o forzar un hallazgo. Actualizar el chip de "N estaciones cumplen…" y
 la hora en `snapshot-note` cada vez.
 
+**Mapa de estaciones (añadido 25/07/2026):** dentro de la misma tarjeta
+RIESGO DE INCENDIO hay `<div id="fireIndexMapWrap">` → `<div id="fireIndexMap">`
+donde un script D3 (v7.8.5 + topojson v3.0.2, CDN cdnjs, cargados al final
+del `<body>` junto al script de `estofexMap`) dibuja en vivo, en el
+navegador de cada visitante: el contorno de las provincias del este
+peninsular (topología `esp.topo.json` de
+`https://cdn.jsdelivr.net/npm/datamaps@0.5.10/src/js/data/esp.topo.json`,
+objeto `esp`, propiedad `properties.name` con nombres en castellano —
+"Lérida", "Gerona", etc., no catalanes) y un círculo por estación
+(`fireStations`, array JS embebido en el propio script, NO se genera server
+side). Cada objeto del array tiene `{name, lat, lon, t, hr, wind}` (t=°C,
+hr=%, wind=km/h). El índice compuesto 0-100 se calcula en el propio
+navegador con lógica de factor limitante (tempScore, humScore, windScore
+por normalización lineal, índice = 100 × el mínimo de los tres) y el color
+del círculo sale de `colorForIndex(index)` (verde-amarillo-naranja-rojo).
+**Actualización diaria: hay que reescribir a mano el array `fireStations`
+dentro del `<script>` con los valores t/hr/wind del día para cada
+estación** (mismas fuentes METAR/XEMA/Meteoclimatic que el texto de la
+sección) — el índice y el color se recalculan solos en el navegador, no
+hace falta tocar esa parte del script. Si se añade o quita una estación de
+la lista de texto, añadir/quitar también su entrada en `fireStations` para
+que el mapa y el texto no diverjan.
+
 ## Historial — qué se intentó, qué se quitó, y por qué
 Importante: lo que sigue ocurrió probando el artifact DENTRO del sandbox de
 claude.ai, antes de desplegar en GitHub Pages. Ese sandbox bloquea peticiones
