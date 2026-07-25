@@ -207,9 +207,19 @@
         <span class="lvlchip l2">1 estación oficial cumple las 3 condiciones ahora</span>
         <span class="lvlchip warm">Actualizado: sáb 25 jul 2026 · 19:00h</span>
       </div>
+      <div id="fireIndexMapWrap" style="border:1px solid var(--border);border-radius:6px;background:#0C1526;padding:10px 10px 6px;margin-bottom:12px;">
+        <div id="fireIndexMap" style="width:100%;"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;padding-top:8px;border-top:1px dashed var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2F5233;margin-right:4px;"></span>0-20 sin riesgo</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F2C14E;margin-right:4px;"></span>20-40 bajo</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F2914E;margin-right:4px;"></span>40-60 moderado</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#E24E4E;margin-right:4px;"></span>60-80 alto</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#8C2A2A;margin-right:4px;"></span>80-100 extremo</span>
+        </div>
+      </div>
       <div class="body">
         <p class="zone">QUÉ ES LA REGLA 30-30-30</p>
-        <p>Combinación de condiciones que favorece el comportamiento extremo del fuego: humedad relativa ≤30%, viento sostenido ≥30 km/h y temperatura ≥30°C, las tres a la vez. Se calcula aquí cruzando METAR de aeródromos (weather.cod.edu), la red oficial XEMA de Meteocat en Cataluña (datos abiertos de la Generalitat) y, como relleno de densidad sin control de calidad garantizado, la red amateur Meteoclimatic en Valencia, Murcia y Baleares.</p>
+        <p>Combinación de condiciones que favorece el comportamiento extremo del fuego: humedad relativa ≤30%, viento sostenido ≥30 km/h y temperatura ≥30°C, las tres a la vez. Se calcula aquí cruzando METAR de aeródromos (weather.cod.edu), la red oficial XEMA de Meteocat en Cataluña (datos abiertos de la Generalitat) y, como relleno de densidad sin control de calidad garantizado, la red amateur Meteoclimatic en Valencia, Murcia y Baleares. El mapa de arriba pinta cada estación con un índice 0-100: cada variable puntúa según cuánto se acerca a su umbral (temperatura 20→38°C, humedad 45→10%, viento 0→45 km/h) y el índice final es el mínimo de las tres — el factor que peor está manda, igual que la regla original.</p>
         <p class="zone">CUMPLE LAS TRES CONDICIONES AHORA MISMO</p>
         <p><b>Valencia-aeropuerto (LEVC):</b> 35°C, HR ≈18%, viento de componente oeste 31 km/h (METAR 18:00 UTC). Único punto de red oficial que cumple la regla completa en este momento — episodio de viento cálido y seco tipo poniente.</p>
         <p class="zone">MUY CERCA DEL UMBRAL</p>
@@ -289,6 +299,77 @@
     };
     // parámetro anti-caché: fuerza recarga real cada vez que se abre/refresca la página
     img.src = 'https://www.estofex.org/cgi-bin/polygon/showforecast.cgi?lightningmap=yes&fcstfile=&_=' + Date.now();
+  })();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+  // Regla 30-30-30: estaciones con temperatura, humedad relativa y viento en el
+  // instante de la última actualización de esta sección. index = 100 * min(tempScore, humScore, windScore).
+  // Actualizar este array cada día junto con el resto de la sección RIESGO DE INCENDIO.
+  var fireStations = [
+    {name:'Valencia-aeropuerto (LEVC)', lat:39.489, lon:-0.481, t:35.0, hr:18, wind:31.0},
+    {name:'el Perelló (XEMA)', lat:40.873, lon:0.716, t:30.4, hr:30, wind:28.1},
+    {name:'Benissanet (XEMA)', lat:41.063, lon:0.636, t:31.1, hr:29, wind:21.2},
+    {name:'Miami Platja (XEMA)', lat:41.021, lon:0.935, t:32.3, hr:28, wind:18.4},
+    {name:'Vinebre (XEMA)', lat:41.185, lon:0.594, t:30.9, hr:27, wind:13.7},
+    {name:'Riudecanyes (XEMA)', lat:41.123, lon:0.970, t:30.9, hr:28, wind:10.4},
+    {name:'Falset (XEMA)', lat:41.154, lon:0.820, t:28.6, hr:30, wind:16.9},
+    {name:'Tremp (XEMA)', lat:42.163, lon:0.888, t:28.1, hr:26, wind:14.8},
+    {name:'Massoteres (XEMA)', lat:41.794, lon:1.306, t:26.9, hr:30, wind:20.9},
+    {name:'Mas de Barberans (XEMA)', lat:40.718, lon:0.400, t:28.9, hr:33, wind:21.6},
+    {name:'Lleida-Alguaire (LEDA)', lat:41.731, lon:0.535, t:29.0, hr:31, wind:28.0},
+    {name:'Archena (Meteoclimatic, sin verificar)', lat:38.116, lon:-1.299, t:35.0, hr:17, wind:20.0},
+    {name:'San Javier-Murcia (LELC)', lat:37.775, lon:-0.812, t:32.0, hr:41, wind:15.0},
+    {name:'Alicante-aeropuerto (LEAL)', lat:38.282, lon:-0.558, t:32.0, hr:43, wind:13.0},
+    {name:'Barcelona-aeropuerto (LEBL)', lat:41.297, lon:2.083, t:28.0, hr:65, wind:22.0},
+    {name:'Girona-aeropuerto (LEGE)', lat:41.901, lon:2.760, t:23.0, hr:65, wind:9.0},
+    {name:'Palma-aeropuerto (LEPA)', lat:39.553, lon:2.739, t:32.0, hr:32, wind:18.5},
+    {name:'Ibiza-aeropuerto (LEIB)', lat:38.873, lon:1.373, t:31.0, hr:43, wind:13.0},
+    {name:'Menorca-aeropuerto (LEMH)', lat:39.862, lon:4.219, t:32.0, hr:60, wind:11.0},
+    {name:'Reus-aeropuerto (LERS)', lat:41.147, lon:1.167, t:30.0, hr:55, wind:15.0},
+    {name:'Sabadell-aeropuerto (LELL)', lat:41.520, lon:2.105, t:27.0, hr:60, wind:9.0}
+  ];
+  function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  function fireIndex(s){
+    var tempScore = clamp01((s.t - 20) / 18);
+    var humScore = clamp01((45 - s.hr) / 35);
+    var windScore = clamp01(s.wind / 45);
+    return Math.round(100 * Math.min(tempScore, humScore, windScore));
+  }
+  function colorForIndex(v){
+    if (v < 20) return '#2F5233';
+    if (v < 40) return '#F2C14E';
+    if (v < 60) return '#F2914E';
+    if (v < 80) return '#E24E4E';
+    return '#8C2A2A';
+  }
+  (function drawFireIndexMap(){
+    var container = document.getElementById('fireIndexMap');
+    if (!container || typeof d3 === 'undefined' || typeof topojson === 'undefined') return;
+    var eastern = ['Gerona','Barcelona','Tarragona','Lérida','Castellón','Valencia','Alicante','Murcia','Baleares','Albacete','Almería','Cuenca','Teruel','Zaragoza','Huesca','Guadalajara'];
+    var svg = d3.select(container).append('svg')
+      .attr('viewBox', '0 0 640 460').attr('width', '100%')
+      .attr('role', 'img').attr('aria-label', 'Mapa del este peninsular con estaciones coloreadas por índice de riesgo de incendio 30-30-30');
+    d3.json('https://cdn.jsdelivr.net/npm/datamaps@0.5.10/src/js/data/esp.topo.json').then(function(esp){
+      var all = topojson.feature(esp, esp.objects.esp).features;
+      var shown = all.filter(function(f){ return eastern.indexOf(f.properties.name) !== -1; });
+      var proj = d3.geoMercator();
+      proj.fitSize([600, 420], {type: 'FeatureCollection', features: shown});
+      var path = d3.geoPath(proj);
+      var g = svg.append('g').attr('transform', 'translate(20,20)');
+      g.selectAll('path').data(shown).join('path')
+        .attr('d', path).attr('fill', '#16233D').attr('stroke', '#24344F').attr('stroke-width', 1);
+      g.selectAll('circle').data(fireStations).join('circle')
+        .attr('cx', function(d){ var p = proj([d.lon, d.lat]); return p ? p[0] : -100; })
+        .attr('cy', function(d){ var p = proj([d.lon, d.lat]); return p ? p[1] : -100; })
+        .attr('r', function(d){ return 4 + fireIndex(d) / 12; })
+        .attr('fill', function(d){ return colorForIndex(fireIndex(d)); })
+        .attr('stroke', '#0A1120').attr('stroke-width', 1)
+        .append('title').text(function(d){ return d.name + ': índice ' + fireIndex(d) + ' (T ' + d.t + '°C, HR ' + d.hr + '%, viento ' + d.wind + ' km/h)'; });
+    }).catch(function(){
+      container.innerHTML = '<p style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text-dim);padding:8px 0;">No se ha podido cargar el mapa (topología no disponible). Consulta el detalle por estación en el texto de abajo.</p>';
+    });
   })();
 </script>
 </body>
