@@ -22,6 +22,7 @@ de él.
 - ESTOFEX — resumen editorial + imagen en vivo del mapa (`<img id="estofexMap">`)
 - OLA DE CALOR MARINA — tarjeta de estadísticas (.statgrid) + párrafos
 - TEMPERATURA DEL MAR — enlaces (Copernicus Marine, SOCIB)
+- RIESGO FLUVIAL — enlaces ACA/SAIH Catalunya, SAIH Ebro, SAIH Júcar (caudales y embalses en tiempo real)
 - ENLACES (Fuentes en tiempo real) — enlaces generales (radar, satélite, rayos...)
 - INCIDENCIAS — enlaces a 112 CV y focs.cat
 
@@ -64,11 +65,23 @@ se quiere recuperar funcionalidad en vivo:
    entorno. La única vía es que un agente (Cowork) lo consulte y reescriba 
    el texto a mano, como hace la tarea diaria.
 
+5. **Editor de código en línea de GitHub (github.com/.../edit/...)**: NO 
+   usarlo para pegar bloques grandes de HTML. Su autocompletado de 
+   etiquetas (`<small>`, `<a>`...) duplica los cierres y corrompe el 
+   fichero al escribir mediante automatización de teclado. El método 
+   fiable verificado es "Upload files" (github.com/OWNER/REPO/upload/BRANCH) 
+   reemplazando el `index.html` completo con el fichero ya editado 
+   localmente.
+
 ## Tarea programada existente
-Nombre: "Actualización diaria — Panel convectivo este peninsular"
+Nombre: "meteo-panel-actualizacion-diaria"
 Cadencia: diaria 11:00 hora local (+ ejecutable a demanda con "Run now")
-Qué hace: actualiza SÍNTESIS CORTO PLAZO, ESTOFEX (texto) y OLA DE CALOR 
-MARINA consultando fuentes web, abre PR a main (no hace merge automático).
+Qué hace: lee este CONTEXT.md, actualiza SÍNTESIS CORTO PLAZO, ESTOFEX 
+(texto) y OLA DE CALOR MARINA consultando fuentes web, y publica el cambio 
+**directamente en `main`** subiendo el `index.html` completo vía 
+"Upload files" (sin Pull Request — el usuario desactivó el paso de revisión 
+el 25/07/2026). Si alguna fuente no responde, dejar esa sección tal cual y 
+anotarlo en la descripción del commit.
 
 ## Convención para añadir enlaces nuevos
 Formato de cada enlace en las secciones de tipo "linklist":
