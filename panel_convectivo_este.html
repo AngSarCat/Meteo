@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de seguimiento · Este peninsular</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1120;
+    --panel:#101B30;
+    --panel2:#16233D;
+    --border:#24344F;
+    --text:#C9D3E6;
+    --text-dim:#7C8AA8;
+    --cyan:#37D6C4;
+    --warm:#F2914E;
+    --lvl1:#F2C14E;
+    --lvl2:#F2914E;
+    --lvl3:#E24E4E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;}
+  ::selection{background:var(--cyan);color:#04211d;}
+  a{color:var(--cyan);}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px;}
+
+  header.top{border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:20px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+    color:var(--cyan);text-transform:uppercase;margin:0 0 6px;}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(22px,3.4vw,32px);
+    margin:0;font-weight:700;letter-spacing:-.01em;}
+  .subtitle{color:var(--text-dim);font-size:13.5px;margin-top:6px;max-width:640px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;}}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:16px 16px 18px;margin-bottom:16px;}
+  .card h2{font-family:'Space Grotesk',sans-serif;font-size:15px;margin:0 0 12px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .card h2 .tag{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:500;
+    color:var(--text-dim);text-transform:none;letter-spacing:0;}
+
+  .lvlbar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+  .lvlchip{font-family:'IBM Plex Mono',monospace;font-size:10.5px;padding:3px 8px;
+    border-radius:20px;border:1px solid var(--border);}
+  .lvlchip.l1{color:var(--lvl1);border-color:var(--lvl1);}
+  .lvlchip.l2{color:var(--lvl2);border-color:var(--lvl2);}
+  .lvlchip.l3{color:var(--lvl3);border-color:var(--lvl3);}
+  .lvlchip.warm{color:var(--warm);border-color:var(--warm);}
+
+  .body p{font-size:13px;line-height:1.55;margin:0 0 10px;color:var(--text);}
+  .body p.zone{font-family:'IBM Plex Mono',monospace;font-size:11px;
+    color:var(--cyan);letter-spacing:.03em;margin-bottom:4px;}
+
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 14px;}
+  @media (max-width:480px){.statgrid{grid-template-columns:repeat(2,1fr);}}
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:8px 10px;}
+  .stat b{display:block;font-family:'Space Grotesk',sans-serif;font-size:17px;color:var(--warm);}
+  .stat span{font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;}
+
+  .snapshot-note{font-size:11px;color:var(--text-dim);border-top:1px dashed var(--border);
+    padding-top:10px;margin-top:12px;line-height:1.5;}
+
+  .linklist{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  @media (max-width:520px){.linklist{grid-template-columns:1fr;}}
+  .linklist a{display:block;background:var(--panel2);border:1px solid var(--border);
+    border-radius:7px;padding:9px 10px;text-decoration:none;color:var(--text);font-size:12.5px;
+    transition:border-color .15s, transform .1s;}
+  .linklist a:hover{border-color:var(--cyan);transform:translateY(-1px);}
+  .linklist a small{display:block;color:var(--text-dim);font-size:10.5px;margin-top:2px;
+    font-family:'IBM Plex Mono',monospace;}
+
+  .full{grid-column:1 / -1;}
+
+  button, .btnlink{font-family:'IBM Plex Mono',monospace;font-size:11.5px;background:var(--panel2);
+    color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;
+    cursor:pointer;transition:border-color .15s;text-decoration:none;display:inline-block;}
+  button:hover, .btnlink:hover{border-color:var(--cyan);}
+
+  .capeImgWrap{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--border);
+    background:#0C1526;min-height:160px;display:flex;align-items:center;justify-content:center;}
+  .capeImgWrap img{width:100%;height:auto;display:block;}
+  .capeFallback{display:none;padding:18px 12px;text-align:center;font-size:11.5px;
+    color:var(--text-dim);font-family:'IBM Plex Mono',monospace;line-height:1.6;}
+  .capeImgWrap.broken img{display:none;}
+  .capeImgWrap.broken .capeFallback{display:block;}
+
+  footer{color:var(--text-dim);font-size:11px;text-align:center;margin-top:26px;
+    font-family:'IBM Plex Mono',monospace;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="eyebrow">Panel de enlaces · No oficial</p>
+    <h1>Riesgo convectivo severo &amp; mar anómalo — Este peninsular</h1>
+    <p class="subtitle">Resumen de situación (riesgo severo + ola de calor marina) y acceso directo a las fuentes en vivo. Apoyo visual rápido, no sustituye a los avisos oficiales de AEMET / Meteocat.</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- ================= AVISOS ================= -->
+    <div class="card full">
+      <h2>Avisos</h2>
+      <div class="linklist">
+        <a href="https://www.aemet.es/es/eltiempo/prediccion/avisos" target="_blank" rel="noopener">AEMET — avisos<small>Mapa oficial por provincia</small></a>
+        <a href="https://www.meteo.cat/prediccio/general" target="_blank" rel="noopener">Meteocat — avisos<small>Mapa de perill per comarques</small></a>
+      </div>
+    </div>
+
+    <!-- ================= SÍNTESIS CORTO PLAZO ================= -->
+    <div class="card full">
+      <h2>Predicción a corto plazo — síntesis <span class="tag">construida por Claude combinando fuentes</span></h2>
+      <div class="lvlbar">
+        <span class="lvlchip l3">Validez: sáb 25 jul 15:00 → dom 26 jul 24:00 (hora local)</span>
+        <span class="lvlchip warm">Construida: sáb 25 jul 2026</span>
+      </div>
+      <div class="body">
+        <p class="zone">SÁBADO 25, TARDE-NOCHE</p>
+        <p>Una bolsa de aire frío en altura avanza de oeste a este sobre el norte peninsular. Los primeros núcleos ya han descargado esta mañana en el Valle de Arán y Pirineo de Lleida, y algunos podrían organizarse con rachas localmente superiores a 70-80 km/h. El foco más peligroso de hoy está en el <b>nordeste de Cataluña</b>: las tormentas más virulentas de la jornada, con riesgo de <b>granizo de hasta 5 cm</b> — tamaño extremo — combinado con peligro de incendio extremo por vegetación muy seca (rayos fuera de las zonas de lluvia, rachas descendentes).</p>
+        <p class="zone">NOCHE 25→26</p>
+        <p>Los núcleos tormentosos se desplazan hacia Cataluña y Baleares durante la madrugada. Coincide con la posibilidad, apuntada por ESTOFEX, de un sistema tormentoso marítimo entre Cataluña y Baleares esta noche, alimentado por convergencia de tramontana/mestral. El mar mediterráneo anormalmente cálido (categoría 4, +3 a +4,5°C de anomalía) aporta humedad y energía extra para sostener esa convección nocturna.</p>
+        <p class="zone">DOMINGO 26 (periodo de validez de ESTOFEX, 06Z-06Z)</p>
+        <p>Foco de interior: Murcia, interior de Valencia, sureste de Castilla-La Mancha (Hellín/Almansa) y este del Sistema Ibérico — el CAPE que entra desde el mar recalentado se solapa con cizalladura suficiente para organizar células, sin descartar alguna supercélula duradera con granizo grande, rachas severas y tornado aislado. Foco marítimo: dryline estacionaria al oeste de Baleares, cobertura baja pero eventos puntualmente intensos. Calor de fondo persistente: Murcia ronda 39°/27°C hoy, bajando algo el domingo a 36°/24°C, con rachas de viento hasta 48 km/h asociadas al paso de la inestabilidad.</p>
+        <p><b>Lectura combinada:</b> el episodio más violento e inmediato (granizo de hasta 5 cm) se concentra hoy-esta noche en Cataluña/NE, ligado a la masa de aire frío que avanza de oeste a este. El domingo el riesgo se traslada y dispersa más hacia el sur/interior (Murcia, Valencia interior) y hacia el mar frente a Baleares — menor cobertura, pero sin descartar fenómenos igual de intensos de forma puntual. El mar anormalmente cálido actúa como combustible de fondo en todo el periodo, no como disparador de un día concreto.</p>
+      </div>
+      <div class="snapshot-note">
+        Síntesis construida por Claude el <b>sábado 25 de julio de 2026</b> combinando ESTOFEX, AEMET/tiempo.com y el contexto de la ola de calor marina de este mismo panel. No es un producto oficial ni un nowcasting en vivo — pide a Claude que la reconstruya cuando quieras una versión más reciente, o consulta directamente los avisos oficiales arriba.
+      </div>
+    </div>
+
+    <!-- ================= ESTOFEX ================= -->
+    <div class="card">
+      <h2>Resumen ESTOFEX <span class="tag" id="estofexMapTag">mapa: cargando…</span></h2>
+      <div class="lvlbar">
+        <span class="lvlchip l3">Nivel 3 · N/Centro Italia</span>
+        <span class="lvlchip l2">Nivel 2 · Balcanes O</span>
+        <span class="lvlchip l1">Nivel 1 · W Mediterráneo</span>
+      </div>
+      <div class="capeImgWrap" id="estofexMapWrap">
+        <img id="estofexMap" alt="Mapa de riesgo severo ESTOFEX" referrerpolicy="no-referrer">
+        <div class="capeFallback" id="estofexMapFallback">El mapa no ha cargado aquí dentro de claude.ai (bloqueo de red del sandbox).<br><br>
+          <a class="btnlink" href="https://www.estofex.org/cgi-bin/polygon/showforecast.cgi?lightningmap=yes&fcstfile=" target="_blank" rel="noopener">Abrir mapa ESTOFEX ↗</a>
+        </div>
+      </div>
+      <div class="body" style="margin-top:12px;">
+        <p class="zone">W MEDITERRÁNEO (incluye este peninsular / Baleares)</p>
+        <p>Nivel 1 por tormentas organizadas —multicélulas y alguna supercélula— ligadas a una línea de convergencia (dryline) estacionaria al oeste de Baleares. Cobertura tormentosa baja, pero riesgo puntual de granizo grande, rachas fuertes, lluvia intensa y algún tornado aislado.</p>
+        <p>Focos de mayor interés en el interior: Murcia, interior de Valencia, sureste de Castilla-La Mancha (Hellín/Almansa) y este del Sistema Ibérico, donde el CAPE que entra desde el mar se solapa con cizalladura suficiente para organizar células.</p>
+      </div>
+      <div class="snapshot-note">
+        El texto de resumen es una fotografía tomada por Claude al consultar ESTOFEX (última comprobación: <b>sábado 25 de julio de 2026</b>, sin cambios desde el boletín emitido a las 08:29 UTC). No se puede actualizar sola desde el HTML — estofex.org no admite ni <code>fetch()</code> ni <code>iframe</code> desde fuera. Pídele a Claude en el chat que la revise de nuevo cuando quieras el dato más reciente, o abre el boletín en vivo en «Fuentes en tiempo real».
+      </div>
+    </div>
+
+    <!-- ================= OLA DE CALOR MARINA ================= -->
+    <div class="card">
+      <h2>Ola de calor marina — Mediterráneo occidental <span class="tag">instantánea · 23-24 jul 2026</span></h2>
+      <div class="lvlbar">
+        <span class="lvlchip warm">Categoría 4 · extrema (NOAA)</span>
+        <span class="lvlchip warm">80% del Mediterráneo afectado</span>
+      </div>
+      <div class="statgrid">
+        <div class="stat"><b>+3 a +4,5°C</b><span>anomalía Cataluña/C.Valenciana/Baleares</span></div>
+        <div class="stat"><b>31,4°C</b><span>Pollença (Mallorca), 23 jul</span></div>
+        <div class="stat"><b>28,6°C</b><span>boya Valéncia, a 0,3°C del récord de julio</span></div>
+        <div class="stat"><b>29,4°C</b><span>Cabo de Palos (Murcia)</span></div>
+        <div class="stat"><b>28-29°C</b><span>costa S/C Cataluña y C. Valenciana</span></div>
+        <div class="stat"><b>5º verano</b><span>consecutivo con ola de calor marina severa</span></div>
+      </div>
+      <div class="body">
+        <p>Toda la cuenca mediterránea está bajo ola de calor marina, con puntos ya en categoría 4 (extrema) al sur de Baleares y frente al sureste peninsular. Las anomalías más extremas de la cuenca (hasta +5-8°C) se concentran algo más al este, en torno a Córcega y Cerdeña.</p>
+        <p>Previsión: ligero descenso generalizado en los próximos días, pero la anomalía se mantendrá en +3 a +5°C sobre lo normal en la cuenca occidental y central — refresca un poco, sigue anormalmente cálido.</p>
+        <p>Por qué importa para el riesgo convectivo: un mar así de cálido aporta más humedad y energía a la atmósfera — combustible extra para tormentas — y dificulta que baje la temperatura nocturna en la costa.</p>
+      </div>
+      <div class="snapshot-note">
+        Fuentes: CEAM/MEDMOS, NOAA, SOCIB, Puertos del Estado, ECMWF (vía tiempo.com / eltiempo.es, 23-24 jul 2026). Instantánea de Claude — usa los enlaces de abajo para el dato del momento.
+      </div>
+    </div>
+
+    <!-- ================= TEMPERATURA DEL MAR ================= -->
+    <div class="card full">
+      <h2>Temperatura del mar</h2>
+      <div class="linklist">
+        <a href="https://data.marine.copernicus.eu/viewer/expert?view=viewer&crs=epsg%3A4326&t=" target="_blank" rel="noopener">Copernicus Marine — visor SST<small>Temperatura y anomalía del mar</small></a>
+        <a href="https://apps.socib.es/subregmed-indicators/ocean_temperature.htm" target="_blank" rel="noopener">SOCIB — indicadores Mediterráneo<small>Temperatura oceánica, subregión occidental</small></a>
+      </div>
+    </div>
+
+    <!-- ================= ENLACES ================= -->
+    <div class="card full">
+      <h2>Fuentes en tiempo real</h2>
+      <div class="linklist">
+        <a href="https://www.estofex.org/cgi-bin/polygon/showforecast.cgi?text=yes" target="_blank" rel="noopener">ESTOFEX — boletín vigente<small>Niveles de riesgo severo Europa</small></a>
+        <a href="https://www.aemet.es/es/eltiempo/observacion/radar" target="_blank" rel="noopener">AEMET — radar<small>Precipitación en directo</small></a>
+        <a href="https://www.aemet.es/es/eltiempo/observacion/rayos" target="_blank" rel="noopener">AEMET — rayos<small>Descargas eléctricas</small></a>
+        <a href="https://www.meteo.cat/observacions/radarLlamps" target="_blank" rel="noopener">Meteocat — radar + llamps<small>Radar amb activitat elèctrica</small></a>
+        <a href="https://view.eumetsat.int/productviewer?v=default" target="_blank" rel="noopener">EUMETSAT — visor satélite<small>Nubosidad convectiva en directo</small></a>
+        <a href="https://www.meteoblue.com/es/tiempo/mapas/" target="_blank" rel="noopener">Meteoblue — mapas del tiempo<small>CAPE, viento, temperatura y más, por capas</small></a>
+        <a href="https://map.blitzortung.org/#6.7/40.699/1.932" target="_blank" rel="noopener">Blitzortung — mapa de rayos<small>Descargas eléctricas en directo, comunidad</small></a>
+        <a href="https://weathermap.netatmo.com/" target="_blank" rel="noopener">Netatmo — mapa del tiempo<small>Estaciones personales en directo</small></a>
+      </div>
+    </div>
+
+    <!-- ================= INCIDENCIAS ================= -->
+    <div class="card full">
+      <h2>Incidencias en tiempo real</h2>
+      <div class="linklist">
+        <a href="https://www.112cv.gva.es/va/incidentes-en-curso" target="_blank" rel="noopener">112 CV — incidents en curs<small>Emergències actives Comunitat Valenciana</small></a>
+        <a href="https://focs.cat/" target="_blank" rel="noopener">focs.cat<small>Seguiment d'incendis a Catalunya</small></a>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    Panel generado por Claude a partir de fuentes públicas (ESTOFEX, AEMET, Meteocat, CEAM/MEDMOS, NOAA, eltiempo.es).
+    No es un producto oficial y no debe usarse como única fuente para decisiones de seguridad — consulta siempre AEMET / Protección Civil.
+  </footer>
+</div>
+<script>
+  (function loadEstofexMap(){
+    var img = document.getElementById('estofexMap');
+    var wrap = document.getElementById('estofexMapWrap');
+    var tag = document.getElementById('estofexMapTag');
+    if(!img) return;
+    img.onerror = function(){
+      wrap.classList.add('broken');
+      if(tag) tag.textContent = 'mapa: no disponible aquí';
+    };
+    img.onload = function(){
+      wrap.classList.remove('broken');
+      if(tag) tag.textContent = 'mapa en vivo · estofex.org';
+    };
+    // parámetro anti-caché: fuerza recarga real cada vez que se abre/refresca la página
+    img.src = 'https://www.estofex.org/cgi-bin/polygon/showforecast.cgi?lightningmap=yes&fcstfile=&_=' + Date.now();
+  })();
+</script>
+</body>
+</html>
