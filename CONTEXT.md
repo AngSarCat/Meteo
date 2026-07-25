@@ -23,6 +23,8 @@ de él.
 - OLA DE CALOR MARINA — tarjeta de estadísticas (.statgrid) + párrafos
 - TEMPERATURA DEL MAR — enlaces (Copernicus Marine, SOCIB)
 - RIESGO FLUVIAL — enlaces ACA/SAIH Catalunya, SAIH Ebro, SAIH Júcar (caudales y embalses en tiempo real)
+- TERREMOTOS — enlace IGN visualizador de terremotos próximos
+- MAPAS DE RIESGOS — enlace Protecció Civil / ICGC (mapa de riscos, Cataluña)
 - ENLACES (Fuentes en tiempo real) — enlaces generales (radar, satélite, rayos...)
 - INCIDENCIAS — enlaces a 112 CV y focs.cat
 
