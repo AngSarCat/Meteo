@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<!--
+OJO: este mapa está DUPLICADO dentro de ../index.html (script id="kpimapDataJson"
++ script namespaced kpimap-*, tarjeta "Mapa interactivo de KPIs"). Es el mismo
+proyecto que el panel principal — al refrescar los datos de sondeos/SYNOP hay
+que regenerar map_data.json y pegarlo AQUÍ (script id="mapDataJson") Y en
+index.html (script id="kpimapDataJson"), o el panel embebido queda desfasado
+respecto a esta página suelta. Ver checklist completo al principio de index.html.
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototipo · Mapa KPIs tiempo severo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#0A1120;
+--panel:#101B30;
+--panel2:#16233D;
+--border:#24344F;
+--text:#C9D3E6;
+--text-dim:#7C8AA8;
+--cyan:#37D6C4;
+--warm:#F2914E;
+--lvl1:#F2C14E;
+--lvl2:#F2914E;
+--lvl3:#E24E4E;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+font-family:'IBM Plex Sans',system-ui,sans-serif;}
+.wrap{max-width:1100px;margin:0 auto;padding:22px 18px 40px;}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+color:var(--cyan);text-transform:uppercase;}
+h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(20px,3vw,28px);margin:6px 0 4px;}
+.subtitle{color:var(--text-dim);font-size:13px;margin:0 0 18px;max-width:700px;line-height:1.5;}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
+select{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--panel2);
+color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 10px;}
+.kpi-desc{font-size:12px;color:var(--text-dim);line-height:1.5;max-width:600px;}
+.layout{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
+#mapCard{flex:1 1 620px;min-width:340px;}
+#infoCard{flex:0 0 300px;min-width:260px;}
+#infoCard h2{font-family:'Space Grotesk',sans-serif;font-size:14px;margin:0 0 10px;}
+#infoCard .placeholder{color:var(--text-dim);font-size:12.5px;line-height:1.6;}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:5px 0;
+border-bottom:1px dashed var(--border);font-size:12.5px;}
+.kv span.k{color:var(--text-dim);}
+.kv span.v{font-family:'IBM Plex Mono',monospace;color:var(--text);}
+.station-name{font-family:'Space Grotesk',sans-serif;font-size:14.5px;color:var(--cyan);margin-bottom:8px;}
+.flag{display:inline-block;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+color:var(--warm);background:rgba(242,145,78,.12);border:1px solid var(--warm);border-radius:5px;padding:3px 7px;}
+.legend{display:flex;align-items:center;gap:8px;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-dim);}
+.legend-bar{height:10px;flex:1;border-radius:4px;border:1px solid var(--border);}
+svg text{font-family:'IBM Plex Mono',monospace;}
+.station-dot{cursor:pointer;stroke:#0A1120;stroke-width:1;}
+.station-dot:hover{stroke:var(--cyan);stroke-width:2;}
+.station-dot.selected{stroke:#fff;stroke-width:2.2;}
+.contour-band{stroke:none;fill-opacity:.85;}
+.coverage-mask{fill:url(#hatchPattern);stroke:none;pointer-events:none;}
+.render-toggle{display:flex;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);align-items:center;}
+.render-toggle button{background:var(--panel2);color:var(--text-dim);border:1px solid var(--border);
+border-radius:5px;padding:4px 9px;cursor:pointer;font-family:inherit;font-size:11px;}
+.render-toggle button.active{background:var(--cyan);color:#0A1120;border-color:var(--cyan);font-weight:600;}
+.coast-line{fill:none;stroke:#6E7FA3;stroke-width:1;stroke-opacity:.9;pointer-events:none;}
+footer{color:var(--text-dim);font-size:11px;text-align:center;margin-top:22px;
+font-family:'IBM Plex Mono',monospace;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="eyebrow">Prototipo · no publicado en el panel en vivo</div>
+<h1>KPIs de tiempo severo · red de sondeos y SYNOP</h1>
+<p class="subtitle">Mapa interactivo de la corona costera del Mediterráneo occidental. Selecciona un KPI para colorear el mapa (isopletas por análisis objetivo Cressman, o teselado Voronoi); pulsa un punto para ver el detalle completo. Datos de sondeos TEMP (12 estaciones) y SYNOP de superficie (22 estaciones con dato válido), snapshot único, no en tiempo real.</p>
+
+<div class="controls">
+<label for="kpiSelect" style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-dim);">KPI:</label>
+<select id="kpiSelect"></select>
+<div class="render-toggle">
+  <span>Campo:</span>
+  <button id="btnCressman" class="active">Cressman (isopletas)</button>
+  <button id="btnVoronoi">Voronoi</button>
+</div>
+</div>
+<p class="kpi-desc" id="kpiDesc"></p>
+<p class="kpi-desc" id="dataTime" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm);"></p>
+
+<div class="layout">
+<div class="card" id="mapCard">
+<svg id="mapSvg" viewBox="0 0 720 560" width="100%" role="img" aria-label="Mapa de estaciones coloreadas por KPI de tiempo severo">
+<defs>
+<pattern id="hatchPattern" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+<rect width="7" height="7" fill="rgba(10,17,32,0.35)"></rect>
+<line x1="0" y1="0" x2="0" y2="7" stroke="#6E7FA3" stroke-width="1.4" stroke-opacity=".55"></line>
+</pattern>
+</defs>
+</svg>
+<div class="legend"><span id="legendMin">-</span><div class="legend-bar" id="legendBar"></div><span id="legendMax">-</span></div>
+</div>
+<div class="card" id="infoCard">
+<h2>Detalle de estación</h2>
+<div id="infoBody"><p class="placeholder">Pulsa un punto del mapa para ver todos sus valores.</p></div>
+</div>
+</div>
+<footer>Prototipo generado a partir de TEMP (TTAA/TTBB, decodificador propio) y SYNOP (AAXX) descargados de Ogimet. CAPE/CIN: Bolton (1980) + ascenso pseudoadiabático. MFC: ajuste de plano de mínimos cuadrados al flujo de humedad sobre vecinos más próximos. Ver limitaciones y supuestos en los scripts fuente.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script id="mapDataJson" type="application/json">
+{
+ "temp_stations": [
+  {
+   "name": "Barcelona (08190)",
+   "lat": 41.297,
+   "lon": 2.083,
+   "SBCAPE": 2285.0,
+   "SBCIN": -21.0,
+   "LCL_hPa": 862.0,
+   "T500": -9.3,
+   "deltaT_sfc_500": 39.1,
+   "lapse_850_500": 6.5,
+   "T850_T500": 28.1,
+   "shear_0_3km": 19.0,
+   "shear_0_6km": 38.7,
+   "nivel_cong_m": 4413,
+   "PWAT_mm": 30.5,
+   "capped_no_lfc": false,
+   "wind850_dir": 245,
+   "wind850_ms": 6,
+   "severity_score": 52.7,
+   "severity_categoria": "Alto",
+   "sst_c": 25.9,
+   "sst_anom_c": 0.7,
+   "combustible_marino": 0.68,
+   "mfc_cercano": 0.08,
+   "mfc_estacion": "Barcelona/El Prat (08181)",
+   "mfc_dist_km": 0.0
+  },
+  {
+   "name": "Palma/Son Bonet (08302)",
+   "lat": 39.599,
+   "lon": 2.703,
+   "SBCAPE": 5390.0,
+   "SBCIN": 0.0,
+   "LCL_hPa": 881.0,
+   "T500": -10.7,
+   "deltaT_sfc_500": 44.1,
+   "lapse_850_500": 7.44,
+   "T850_T500": 32.5,
+   "shear_0_3km": 25.1,
+   "shear_0_6km": 32.0,
+   "nivel_cong_m": 4697,
+   "PWAT_mm": 38.8,
+   "capped_no_lfc": false,
+   "wind850_dir": 270,
+   "wind850_ms": 9,
+   "severity_score": 80.8,
+   "severity_categoria": "Extremo",
+   "sst_c": 28.6,
+   "sst_anom_c": 3.0,
+   "combustible_marino": 3.0,
+   "mfc_cercano": 0.0,
+   "mfc_estacion": "Palma de Mallorca (08301)",
+   "mfc_dist_km": 6.0
+  },
+  {
+   "name": "Murcia (08430)",
+   "lat": 37.775,
+   "lon": -0.812,
+   "SBCAPE": 94.0,
+   "SBCIN": -2192.0,
+   "LCL_hPa": 520.0,
+   "T500": -10.1,
+   "deltaT_sfc_500": 47.5,
+   "lapse_850_500": 6.91,
+   "T850_T500": 30.1,
+   "shear_0_3km": 26.8,
+   "shear_0_6km": 36.6,
+   "nivel_cong_m": 4662,
+   "PWAT_mm": 17.5,
+   "capped_no_lfc": true,
+   "wind850_dir": 255,
+   "wind850_ms": 5,
+   "severity_score": 6.9,
+   "severity_categoria": "Bajo",
+   "sst_c": 27.3,
+   "sst_anom_c": 1.5,
+   "combustible_marino": 0.0,
+   "mfc_cercano": 0.01,
+   "mfc_estacion": "Alicante (08359)",
+   "mfc_dist_km": 61.0
+  },
+  {
+   "name": "Nimes/Courbessac (07645)",
+   "lat": 43.854,
+   "lon": 4.416,
+   "SBCAPE": 355.0,
+   "SBCIN": -113.0,
+   "LCL_hPa": 891.0,
+   "T500": -9.9,
+   "deltaT_sfc_500": 34.3,
+   "lapse_850_500": 5.8,
+   "T850_T500": 24.9,
+   "shear_0_3km": 13.9,
+   "shear_0_6km": 25.5,
+   "nivel_cong_m": 4093,
+   "PWAT_mm": 38.8,
+   "capped_no_lfc": false,
+   "wind850_dir": 170,
+   "wind850_ms": 8,
+   "severity_score": 18.1,
+   "severity_categoria": "Bajo",
+   "sst_c": 25.9,
+   "sst_anom_c": 0.7,
+   "combustible_marino": 0.12,
+   "mfc_cercano": 0.09,
+   "mfc_estacion": "Montpellier (07643)",
+   "mfc_dist_km": 48.0
+  },
+  {
+   "name": "Ajaccio (07761)",
+   "lat": 41.923,
+   "lon": 8.803,
+   "SBCAPE": 2918.0,
+   "SBCIN": -26.0,
+   "LCL_hPa": 848.0,
+   "T500": -10.7,
+   "deltaT_sfc_500": 43.3,
+   "lapse_850_500": 7.27,
+   "T850_T500": 31.7,
+   "shear_0_3km": 9.4,
+   "shear_0_6km": 22.0,
+   "nivel_cong_m": 4604,
+   "PWAT_mm": 32.2,
+   "capped_no_lfc": false,
+   "wind850_dir": 175,
+   "wind850_ms": 5,
+   "severity_score": 56.9,
+   "severity_categoria": "Alto",
+   "sst_c": 27.2,
+   "sst_anom_c": 2.9,
+   "combustible_marino": 2.89,
+   "mfc_cercano": 0.09,
+   "mfc_estacion": "Ajaccio (07761)",
+   "mfc_dist_km": 0.0
+  },
+  {
+   "name": "Argel/Dar El Beida (60390)",
+   "lat": 36.691,
+   "lon": 3.215,
+   "SBCAPE": 3885.0,
+   "SBCIN": -494.0,
+   "LCL_hPa": 972.0,
+   "T500": -9.5,
+   "deltaT_sfc_500": 37.3,
+   "lapse_850_500": 8.89,
+   "T850_T500": 39.3,
+   "shear_0_3km": 10.0,
+   "shear_0_6km": 14.9,
+   "nivel_cong_m": 4970,
+   "PWAT_mm": 33.3,
+   "capped_no_lfc": false,
+   "wind850_dir": 220,
+   "wind850_ms": 4,
+   "severity_score": 11.1,
+   "severity_categoria": "Bajo",
+   "sst_c": 25.2,
+   "sst_anom_c": 0.7,
+   "combustible_marino": 0.69,
+   "mfc_cercano": -0.01,
+   "mfc_estacion": "Ibiza/Es Codolá (08373)",
+   "mfc_dist_km": 292.0
+  },
+  {
+   "name": "A Coruna (08001)",
+   "lat": 43.366,
+   "lon": -8.421,
+   "SBCAPE": 1781.0,
+   "SBCIN": 0.0,
+   "LCL_hPa": 967.0,
+   "T500": -14.5,
+   "deltaT_sfc_500": 36.1,
+   "lapse_850_500": 5.75,
+   "T850_T500": 24.3,
+   "shear_0_3km": 7.4,
+   "shear_0_6km": 14.0,
+   "nivel_cong_m": 3483,
+   "PWAT_mm": 27.9,
+   "capped_no_lfc": false,
+   "wind850_dir": 325,
+   "wind850_ms": 6,
+   "severity_score": 38.5,
+   "severity_categoria": "Moderado",
+   "sst_c": 19.7,
+   "sst_anom_c": 1.0,
+   "combustible_marino": 0.64,
+   "mfc_cercano": null,
+   "mfc_estacion": "Lisboa/Geofísico (08535)",
+   "mfc_dist_km": 521.0
+  },
+  {
+   "name": "Santander (08023)",
+   "lat": 43.491,
+   "lon": -3.801,
+   "SBCAPE": 718.0,
+   "SBCIN": -28.0,
+   "LCL_hPa": 973.0,
+   "T500": -16.1,
+   "deltaT_sfc_500": 35.1,
+   "lapse_850_500": 6.07,
+   "T850_T500": 25.5,
+   "shear_0_3km": 10.2,
+   "shear_0_6km": 10.6,
+   "nivel_cong_m": 3102,
+   "PWAT_mm": 35.8,
+   "capped_no_lfc": false,
+   "wind850_dir": 295,
+   "wind850_ms": 12,
+   "severity_score": 21.6,
+   "severity_categoria": "Bajo",
+   "sst_c": 19.7,
+   "sst_anom_c": 1.0,
+   "combustible_marino": 0.09,
+   "mfc_cercano": 0.0,
+   "mfc_estacion": "Zaragoza (08159)",
+   "mfc_dist_km": 304.0
+  },
+  {
+   "name": "Madrid/Barajas (08221)",
+   "lat": 40.467,
+   "lon": -3.556,
+   "SBCAPE": 231.0,
+   "SBCIN": 0.0,
+   "LCL_hPa": 722.0,
+   "T500": -13.5,
+   "deltaT_sfc_500": 39.3,
+   "lapse_850_500": 6.51,
+   "T850_T500": 27.7,
+   "shear_0_3km": 10.8,
+   "shear_0_6km": 24.3,
+   "nivel_cong_m": 3697,
+   "PWAT_mm": 16.8,
+   "capped_no_lfc": false,
+   "wind850_dir": 35,
+   "wind850_ms": 2,
+   "severity_score": 27.3,
+   "severity_categoria": "Moderado",
+   "sst_c": null,
+   "sst_anom_c": null,
+   "combustible_marino": null,
+   "mfc_cercano": 0.07,
+   "mfc_estacion": "Albacete (08279)",
+   "mfc_dist_km": 222.0
+  },
+  {
+   "name": "Huelva (08383)",
+   "lat": 37.278,
+   "lon": -6.912,
+   "SBCAPE": 110.0,
+   "SBCIN": -511.0,
+   "LCL_hPa": 839.0,
+   "T500": -9.3,
+   "deltaT_sfc_500": 37.3,
+   "lapse_850_500": 5.54,
+   "T850_T500": 23.9,
+   "shear_0_3km": 9.5,
+   "shear_0_6km": 21.4,
+   "nivel_cong_m": 4476,
+   "PWAT_mm": 22.2,
+   "capped_no_lfc": true,
+   "wind850_dir": 335,
+   "wind850_ms": 9,
+   "severity_score": 7.7,
+   "severity_categoria": "Bajo",
+   "sst_c": 19.7,
+   "sst_anom_c": 1.0,
+   "combustible_marino": 0.0,
+   "mfc_cercano": 0.08,
+   "mfc_estacion": "Faro/aeropuerto (08554)",
+   "mfc_dist_km": 98.0
+  },
+  {
+   "name": "Lisboa/Portela (08536)",
+   "lat": 38.789,
+   "lon": -9.135,
+   "SBCAPE": 41.0,
+   "SBCIN": 0.0,
+   "LCL_hPa": 867.0,
+   "T500": -11.1,
+   "deltaT_sfc_500": 34.5,
+   "lapse_850_500": 4.83,
+   "T850_T500": 20.7,
+   "shear_0_3km": 7.0,
+   "shear_0_6km": 12.6,
+   "nivel_cong_m": 3966,
+   "PWAT_mm": 25.4,
+   "capped_no_lfc": false,
+   "wind850_dir": 345,
+   "wind850_ms": 10,
+   "severity_score": 18.7,
+   "severity_categoria": "Bajo",
+   "sst_c": 19.7,
+   "sst_anom_c": 1.0,
+   "combustible_marino": 0.5,
+   "mfc_cercano": null,
+   "mfc_estacion": "Lisboa/Geofísico (08535)",
+   "mfc_dist_km": 8.0
+  },
+  {
+   "name": "Bordeaux/Merignac (07510)",
+   "lat": 44.831,
+   "lon": -0.691,
+   "SBCAPE": 105.0,
+   "SBCIN": 0.0,
+   "LCL_hPa": 848.0,
+   "T500": -8.5,
+   "deltaT_sfc_500": 33.5,
+   "lapse_850_500": 4.23,
+   "T850_T500": 18.1,
+   "shear_0_3km": 7.0,
+   "shear_0_6km": 15.8,
+   "nivel_cong_m": 4073,
+   "PWAT_mm": 27.1,
+   "capped_no_lfc": false,
+   "wind850_dir": 270,
+   "wind850_ms": 7,
+   "severity_score": 20.0,
+   "severity_categoria": "Bajo",
+   "sst_c": 19.7,
+   "sst_anom_c": 1.0,
+   "combustible_marino": 0.98,
+   "mfc_cercano": 0.0,
+   "mfc_estacion": "Zaragoza (08159)",
+   "mfc_dist_km": 353.0
+  }
+ ],
+ "mfc_stations": [
+  {
+   "name": "Girona/Costa Brava (08184)",
+   "lat": 41.901,
+   "lon": 2.76,
+   "MFC": 0.17,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 26.9,
+   "Td": 16.0,
+   "wind_dir": 120.0,
+   "wind_ms": 3.0
+  },
+  {
+   "name": "Barcelona/El Prat (08181)",
+   "lat": 41.297,
+   "lon": 2.083,
+   "MFC": 0.08,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.5,
+   "Td": 14.5,
+   "wind_dir": 290.0,
+   "wind_ms": 4.0
+  },
+  {
+   "name": "Reus/Aeropuerto (08175)",
+   "lat": 41.147,
+   "lon": 1.167,
+   "MFC": 0.02,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.5,
+   "Td": 11.2,
+   "wind_dir": 270.0,
+   "wind_ms": 11.0
+  },
+  {
+   "name": "Castellón-Almazora (08286)",
+   "lat": 39.997,
+   "lon": -0.054,
+   "MFC": -0.05,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.6,
+   "Td": 12.1,
+   "wind_dir": 110.0,
+   "wind_ms": 3.0
+  },
+  {
+   "name": "Valencia/aeropuerto (08284)",
+   "lat": 39.489,
+   "lon": -0.481,
+   "MFC": 0.01,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.7,
+   "Td": 10.5,
+   "wind_dir": 110.0,
+   "wind_ms": 4.0
+  },
+  {
+   "name": "Alicante (08359)",
+   "lat": 38.282,
+   "lon": -0.558,
+   "MFC": 0.01,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 31.2,
+   "Td": 17.5,
+   "wind_dir": 150.0,
+   "wind_ms": 4.0
+  },
+  {
+   "name": "Almería/aeropuerto (08487)",
+   "lat": 36.844,
+   "lon": -2.358,
+   "MFC": -0.01,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 28.0,
+   "Td": 20.6,
+   "wind_dir": 220.0,
+   "wind_ms": 7.0
+  },
+  {
+   "name": "Palma de Mallorca (08301)",
+   "lat": 39.553,
+   "lon": 2.739,
+   "MFC": 0.0,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.4,
+   "Td": 21.4,
+   "wind_dir": 60.0,
+   "wind_ms": 3.0
+  },
+  {
+   "name": "Ibiza/Es Codolá (08373)",
+   "lat": 38.873,
+   "lon": 1.373,
+   "MFC": -0.01,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 30.9,
+   "Td": 18.8,
+   "wind_dir": 20.0,
+   "wind_ms": 12.0
+  },
+  {
+   "name": "Menorca/Mahón (08314)",
+   "lat": 39.862,
+   "lon": 4.219,
+   "MFC": -0.01,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 25.1,
+   "Td": 17.0,
+   "wind_dir": 30.0,
+   "wind_ms": 20.0
+  },
+  {
+   "name": "Zaragoza (08159)",
+   "lat": 41.666,
+   "lon": -1.042,
+   "MFC": 0.0,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 23.0,
+   "Td": 11.7,
+   "wind_dir": 320.0,
+   "wind_ms": 6.0
+  },
+  {
+   "name": "Albacete (08279)",
+   "lat": 38.949,
+   "lon": -1.864,
+   "MFC": 0.07,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 25.7,
+   "Td": 7.7,
+   "wind_dir": 320.0,
+   "wind_ms": 2.0
+  },
+  {
+   "name": "Ceuta (60320)",
+   "lat": 35.9,
+   "lon": -5.317,
+   "MFC": -0.06,
+   "confianza": "media",
+   "n_vecinos": 4,
+   "T": 31.6,
+   "Td": 11.9,
+   "wind_dir": 100.0,
+   "wind_ms": 2.0
+  },
+  {
+   "name": "Melilla (60338)",
+   "lat": 35.28,
+   "lon": -2.956,
+   "MFC": -0.04,
+   "confianza": "media",
+   "n_vecinos": 4,
+   "T": 29.8,
+   "Td": 14.7,
+   "wind_dir": 310.0,
+   "wind_ms": 3.0
+  },
+  {
+   "name": "Lisboa/Geofísico (08535)",
+   "lat": 38.717,
+   "lon": -9.15,
+   "MFC": null,
+   "confianza": "insuficiente",
+   "n_vecinos": 2,
+   "T": null,
+   "Td": null,
+   "wind_dir": null,
+   "wind_ms": null
+  },
+  {
+   "name": "Faro/aeropuerto (08554)",
+   "lat": 37.014,
+   "lon": -7.966,
+   "MFC": 0.08,
+   "confianza": "baja",
+   "n_vecinos": 3,
+   "T": 25.9,
+   "Td": 15.5,
+   "wind_dir": 220.0,
+   "wind_ms": 3.0
+  },
+  {
+   "name": "Perpignan (07747)",
+   "lat": 42.74,
+   "lon": 2.871,
+   "MFC": 0.05,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 26.4,
+   "Td": 12.5,
+   "wind_dir": 310.0,
+   "wind_ms": 10.0
+  },
+  {
+   "name": "Montpellier (07643)",
+   "lat": 43.576,
+   "lon": 3.963,
+   "MFC": 0.09,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 25.5,
+   "Td": 14.9,
+   "wind_dir": 290.0,
+   "wind_ms": 10.0
+  },
+  {
+   "name": "Marseille/Marignane (07650)",
+   "lat": 43.439,
+   "lon": 5.221,
+   "MFC": 0.09,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 26.3,
+   "Td": 16.0,
+   "wind_dir": 280.0,
+   "wind_ms": 8.0
+  },
+  {
+   "name": "Nice (07690)",
+   "lat": 43.658,
+   "lon": 7.215,
+   "MFC": 0.07,
+   "confianza": "media",
+   "n_vecinos": 5,
+   "T": 29.1,
+   "Td": 16.6,
+   "wind_dir": 160.0,
+   "wind_ms": 2.0
+  },
+  {
+   "name": "Ajaccio (07761)",
+   "lat": 41.923,
+   "lon": 8.803,
+   "MFC": 0.09,
+   "confianza": "media",
+   "n_vecinos": 4,
+   "T": 30.7,
+   "Td": 21.8,
+   "wind_dir": 240.0,
+   "wind_ms": 6.0
+  },
+  {
+   "name": "Bastia (07790)",
+   "lat": 42.552,
+   "lon": 9.484,
+   "MFC": 0.09,
+   "confianza": "media",
+   "n_vecinos": 4,
+   "T": 31.3,
+   "Td": 20.9,
+   "wind_dir": 360.0,
+   "wind_ms": 8.0
+  }
+ ],
+ "meta": {
+  "temp_times_by_station": {
+   "Barcelona (08190)": "2026-07-25 11:00 UTC",
+   "Palma/Son Bonet (08302)": "2026-07-25 11:00 UTC",
+   "Murcia (08430)": "2026-07-25 11:00 UTC",
+   "Nimes/Courbessac (07645)": "2026-07-25 11:00 UTC",
+   "Ajaccio (07761)": "2026-07-25 11:00 UTC",
+   "Argel/Dar El Beida (60390)": "2026-07-25 00:00 UTC",
+   "A Coruna (08001)": "2026-07-25 11:00 UTC",
+   "Santander (08023)": "2026-07-25 11:00 UTC",
+   "Madrid/Barajas (08221)": "2026-07-25 11:00 UTC",
+   "Huelva (08383)": "2026-07-25 11:00 UTC",
+   "Lisboa/Portela (08536)": "2026-07-25 11:00 UTC",
+   "Bordeaux/Merignac (07510)": "2026-07-26 11:00 UTC"
+  },
+  "temp_reference_note": "La mayoria 2026-07-25 11:00 UTC; Argel 2026-07-25 00:00 UTC; Burdeos 2026-07-26 11:00 UTC (el dato de referencia salio incompleto y se uso el del dia siguiente, misma hora UTC).",
+  "synop_reference_time": "2026-07-26 ~10:00 UTC",
+  "generated_note": "Snapshot unico descargado de Ogimet durante esta sesion; no se actualiza solo.",
+  "sst_note": "SST de hoy tomada de 7 puntos reales (NOAA via seatemperature.org); el resto de estaciones usa el punto mas cercano/analogo, no una grid real."
+ }
+}
+</script>
+<script>
+var DATA = JSON.parse(document.getElementById('mapDataJson').textContent);
+
+var KPIS = {
+ SBCAPE: {label:'SBCAPE (superficie)', unit:'J/kg', dataset:'temp', key:'SBCAPE',
+   domain:[0,5500], scheme:d3.interpolateYlOrRd, decimals:0,
+   desc:'Energía potencial disponible para la convección desde un parcel de superficie. >2000 J/kg: tormentas potencialmente intensas; >4000 J/kg: muy inestable.'},
+ SBCIN: {label:'SBCIN (inhibición)', unit:'J/kg', dataset:'temp', key:'SBCIN',
+   domain:[-2500,0], scheme:function(t){return d3.interpolateCool(1-t);}, decimals:0,
+   desc:'Energía que impide que el aire de superficie llegue a ser libre para convección. Muy negativo = tapa fuerte, tormentas improbables sin forzamiento externo.'},
+ T850_T500: {label:'Gradiente T850-T500', unit:'°C', dataset:'temp', key:'T850_T500',
+   domain:[20,40], scheme:d3.interpolateYlOrRd, decimals:1,
+   desc:'Diferencia de temperatura entre 850 y 500 hPa. Indicador rápido de inestabilidad; >28-30°C ya es notable en esta región, >32°C es extremo.'},
+ lapse_850_500: {label:'Lapse rate 850-500hPa', unit:'°C/km', dataset:'temp', key:'lapse_850_500',
+   domain:[5,9], scheme:d3.interpolateYlOrRd, decimals:2,
+   desc:'Tasa de enfriamiento con la altura entre 850 y 500 hPa, normalizada por km. >7°C/km ya indica una columna bastante inestable.'},
+ shear_0_6km: {label:'Cizalla 0-6km (proxy)', unit:'m/s', dataset:'temp', key:'shear_0_6km',
+   domain:[10,40], scheme:d3.interpolateBuPu, decimals:1,
+   desc:'Diferencia vectorial de viento entre superficie y ~500hPa (proxy de 0-6km). >20-25 m/s favorece organización (multicélulas/supercélulas).'},
+ PWAT_mm: {label:'Agua precipitable (PWAT)', unit:'mm', dataset:'temp', key:'PWAT_mm',
+   domain:[15,40], scheme:d3.interpolateGnBu, decimals:1,
+   desc:'Columna total de vapor de agua. Valores altos (>35mm) favorecen tasas de precipitación intensas y riesgo de lluvia torrencial.'},
+ MFC: {label:'Convergencia de humedad (MFC)', unit:'×10⁻⁵ s⁻¹', dataset:'mfc', key:'MFC',
+   domain:[-1.5,1.5], scheme:function(t){return d3.interpolatePRGn(t);}, decimals:2, diverging:true,
+   desc:'Convergencia del flujo de humedad en superficie (ajuste local de mínimos cuadrados sobre la red SYNOP). Positivo (verde) = acumulación de humedad, posible zona de disparo convectivo si hay CAPE disponible. Snapshot débil hoy: sin señal sinóptica fuerte.'},
+ SEVERITY: {label:'Índice de severidad compuesto', unit:'/100', dataset:'temp', key:'severity_score',
+   domain:[0,100], scheme:d3.interpolateYlOrRd, decimals:0,
+   desc:'Heurística de síntesis (no oficial): combina CAPE, cizalla 0-6km y gradiente T850-T500 -- multiplicados por un factor de "liberación" que decae si el CIN tapa la columna -- más un término de superficie (MFC de la SYNOP más cercana + "combustible marino": anomalía de SST de hoy × componente onshore del viento). <25 Bajo, 25-50 Moderado, 50-75 Alto, >75 Extremo.'}
+};
+
+var svg = d3.select('#mapSvg');
+var W = 720, H = 560;
+var mapG = svg.append('g').attr('id', 'mapG');
+var landG = mapG.append('g').attr('id', 'landG');
+var contourG = mapG.append('g').attr('id', 'contourG'); // isopletas Cressman
+var voronoiG = mapG.append('g').attr('id', 'voronoiG');
+var maskG = mapG.append('g').attr('id', 'maskG'); // trama de "sin cobertura suficiente"
+var bordersG = mapG.append('g').attr('id', 'bordersG'); // contorno de costa/pais, encima del color, para que la referencia geografica no quede tapada por el relleno del KPI
+var stationsG = mapG.append('g').attr('id', 'stationsG');
+var barbsG = mapG.append('g').attr('id', 'barbsG'); // barbas de viento (nudos), solo en el KPI de MFC
+var renderMode = 'cressman'; // 'cressman' | 'voronoi'
+
+d3.select('#btnCressman').on('click', function(){
+  renderMode = 'cressman';
+  d3.select('#btnCressman').classed('active', true);
+  d3.select('#btnVoronoi').classed('active', false);
+  render();
+});
+d3.select('#btnVoronoi').on('click', function(){
+  renderMode = 'voronoi';
+  d3.select('#btnVoronoi').classed('active', true);
+  d3.select('#btnCressman').classed('active', false);
+  render();
+});
+
+var projection = d3.geoMercator();
+var pathGen = d3.geoPath(projection);
+var currentKpiKey = 'SBCAPE';
+var selectedStation = null;
+
+// Caja de encuadre: envolvente de todas las estaciones (TEMP+SYNOP) + margen,
+// para que el mapa siempre encuadre la zona de interes real, con independencia
+// de la extension completa de los paises cargados como fondo geografico.
+var REGION_BBOX = (function(){
+  var allStations = DATA.temp_stations.concat(DATA.mfc_stations)
+    .filter(function(d){ return d.lat != null && d.lon != null; });
+  var lats = allStations.map(function(d){ return d.lat; });
+  var lons = allStations.map(function(d){ return d.lon; });
+  var pad = 1.1; // grados de margen alrededor de las estaciones extremas
+  var minLat = Math.min.apply(null, lats) - pad, maxLat = Math.max.apply(null, lats) + pad;
+  var minLon = Math.min.apply(null, lons) - pad, maxLon = Math.max.apply(null, lons) + pad;
+  // OJO: d3.geoPath().bounds() (usado internamente por fitExtent) con una
+  // geometria Polygon de pocos vertices + proyeccion Mercator puede disparar
+  // el remuestreo adaptativo de aristas y devolver un bounding box absurdamente
+  // grande (confirmado con d3 puro: un rectangulo de este tamano como Polygon
+  // da la MISMA escala que intentar encajar medio planeta). Usar puntos
+  // (FeatureCollection de Point) evita el remuestreo de aristas y funciona bien.
+  return {type:'FeatureCollection', features:[
+    [minLon,minLat],[maxLon,minLat],[maxLon,maxLat],[minLon,maxLat]
+  ].map(function(c){ return {type:'Feature', geometry:{type:'Point', coordinates:c}}; })};
+})();
+
+var select = d3.select('#kpiSelect');
+select.selectAll('option').data(Object.keys(KPIS)).join('option')
+  .attr('value', function(d){return d;})
+  .text(function(d){return KPIS[d].label;});
+select.on('change', function(){ currentKpiKey = this.value; render(); });
+
+function loadCountries(){
+  // Misma fuente/patron que el mapa de riesgo de incendio ya en produccion
+  // (datamaps@0.5.10, un topojson por pais con subdivisiones). Se cargan los
+  // 5 paises de la zona por separado (mas robusto que filtrar un atlas mundial
+  // por id numerico, que no se puede verificar sin ejecutar en un navegador real).
+  var codes = ['esp', 'fra', 'prt', 'mar', 'dza'];
+  var base = 'https://cdn.jsdelivr.net/npm/datamaps@0.5.10/src/js/data/';
+  var promises = codes.map(function(code){
+    return d3.json(base + code + '.topo.json').then(function(topo){
+      if (!topo || !topo.objects || !topo.objects[code]) return [];
+      return topojson.feature(topo, topo.objects[code]).features;
+    }).catch(function(){ return []; });
+  });
+  return Promise.all(promises).then(function(results){
+    var all = results.flat();
+    if (!all.length) throw new Error('sin features de ningun pais');
+    return all;
+  });
+}
+
+var allPoints = {};
+function pointsFor(kpi){
+  var cfg = KPIS[kpi];
+  var arr = cfg.dataset === 'temp' ? DATA.temp_stations : DATA.mfc_stations;
+  return arr.filter(function(d){ return d.lat != null && d.lon != null && d[cfg.key] !== null && d[cfg.key] !== undefined; });
+}
+
+// --- Analisis objetivo Cressman (Cressman, 1959) ---------------------------
+// Metodo clasico de "correccion sucesiva": pasada 1 con radio grande (da un
+// campo suave que cubre casi toda la zona), pasada 2 con radio mas pequeno
+// que corrige el residuo (obs - estimacion pasada 1) donde la densidad de
+// estaciones lo permite. Donde no hay estaciones cerca ni siquiera para la
+// pasada 1, la celda queda sin cobertura y se marca con trama en vez de
+// inventar un valor.
+function cressmanWeight(d2, R2){
+  if (d2 >= R2) return 0;
+  return (R2 - d2) / (R2 + d2);
+}
+
+function cressmanEstimateAt(gx, gy, stations, xy, valKey, R){
+  var R2 = R * R, wsum = 0, vsum = 0;
+  for (var k = 0; k < stations.length; k++){
+    var ddx = xy[k][0] - gx, ddy = xy[k][1] - gy;
+    var d2 = ddx*ddx + ddy*ddy;
+    var w = cressmanWeight(d2, R2);
+    if (w > 0){ wsum += w; vsum += w * stations[k][valKey]; }
+  }
+  return wsum > 0 ? vsum / wsum : null;
+}
+
+function buildCressmanGrid(pts, xy, key, W, H, nx, ny, R1, R2){
+  // pasada 1: primera estimacion con radio grande
+  var pass1AtStation = pts.map(function(p, i){
+    return cressmanEstimateAt(xy[i][0], xy[i][1], pts, xy, key, R1);
+  });
+  var residual = pts.map(function(p, i){
+    var est = pass1AtStation[i];
+    return est === null ? 0 : (p[key] - est);
+  });
+  var ptsWithResidual = pts.map(function(p, i){ var c = Object.assign({}, p); c.__resid = residual[i]; return c; });
+
+  var dx = W / nx, dy = H / ny;
+  var grid = new Array(nx * ny).fill(NaN);
+  var nearestDist = new Array(nx * ny).fill(Infinity);
+  for (var j = 0; j < ny; j++){
+    for (var i = 0; i < nx; i++){
+      var gx = (i + 0.5) * dx, gy = (j + 0.5) * dy;
+      var idx = j * nx + i;
+      var v1 = cressmanEstimateAt(gx, gy, pts, xy, key, R1);
+      var corr = cressmanEstimateAt(gx, gy, ptsWithResidual, xy, '__resid', R2);
+      var nd = Infinity;
+      for (var k = 0; k < xy.length; k++){
+        var ddx = xy[k][0]-gx, ddy = xy[k][1]-gy;
+        var d = Math.sqrt(ddx*ddx+ddy*ddy);
+        if (d < nd) nd = d;
+      }
+      nearestDist[idx] = nd;
+      if (v1 !== null){ grid[idx] = v1 + (corr === null ? 0 : corr); }
+    }
+  }
+  return {grid: grid, nearestDist: nearestDist, nx: nx, ny: ny};
+}
+
+function colorScale(cfg){
+  if (cfg.diverging){
+    return d3.scaleDiverging(function(t){ return cfg.scheme(t); }).domain([cfg.domain[0], 0, cfg.domain[1]]);
+  }
+  return d3.scaleSequential(cfg.scheme).domain(cfg.domain);
+}
+
+// --- Barbas de viento (convencion sinoptica estandar, velocidad en nudos) ---
+// Asta desde el punto de estacion hacia la direccion de la que viene el viento
+// (convencion meteorologica); barbas cerca de la punta: triangulo=50kt,
+// barba larga=10kt, barba corta=5kt. Redondeado a los 5kt mas cercanos.
+// Dibujado en coordenadas locales con el asta apuntando "hacia arriba" (-y);
+// se rota el grupo entero por dirDeg (igual convencion que un rumbo de brujula,
+// coincide con la rotacion horaria de SVG).
+function windBarbElements(speedKt){
+  var shaftLen = 26, step = 4.4, barbLen = 9.5, angleDeg = 55;
+  var rad = angleDeg * Math.PI / 180;
+  var els = [{tag: 'line', x1: 0, y1: 2, x2: 0, y2: -shaftLen}];
+  var v = Math.round(speedKt / 5) * 5;
+  if (v <= 0) return els; // calma: solo un punto (el circulo de la estacion ya lo representa)
+  var pennants = Math.floor(v / 50); v -= pennants * 50;
+  var fulls = Math.floor(v / 10); v -= fulls * 10;
+  var half = v >= 5;
+  var pos = -shaftLen;
+  for (var p = 0; p < pennants; p++){
+    var y0 = pos, y1 = pos + step * 1.8;
+    var tipX = Math.sin(rad) * barbLen * 1.15, tipY = (y0 + y1) / 2 + Math.cos(rad) * barbLen * 0.3;
+    els.push({tag: 'polygon', pts: [[0, y0], [0, y1], [tipX, tipY]]});
+    pos = y1;
+  }
+  for (var f = 0; f < fulls; f++){
+    var ex = Math.sin(rad) * barbLen, ey = pos + Math.cos(rad) * barbLen;
+    els.push({tag: 'line', x1: 0, y1: pos, x2: ex, y2: ey});
+    pos += step;
+  }
+  if (half){
+    var ex2 = Math.sin(rad) * barbLen * 0.55, ey2 = pos + Math.cos(rad) * barbLen * 0.55;
+    els.push({tag: 'line', x1: 0, y1: pos, x2: ex2, y2: ey2});
+  }
+  return els;
+}
+
+function drawWindBarbs(container, pts, xy, dirKey, spdKey, levelLabel){
+  dirKey = dirKey || 'wind_dir'; spdKey = spdKey || 'wind_ms'; levelLabel = levelLabel || 'superficie';
+  container.selectAll('*').remove();
+  var groups = container.selectAll('g.barb').data(pts.filter(function(d){
+    return d[dirKey] !== null && d[dirKey] !== undefined && d[spdKey] !== null && d[spdKey] !== undefined;
+  }), function(d){ return d.name; }).join('g')
+    .attr('class', 'barb')
+    .attr('transform', function(d, i){
+      var idx = pts.indexOf(d);
+      return 'translate(' + xy[idx][0] + ',' + xy[idx][1] + ') rotate(' + d[dirKey] + ')';
+    });
+  groups.each(function(d){
+    var speedKt = d[spdKey] * 1.943844;
+    var els = windBarbElements(speedKt);
+    var g = d3.select(this);
+    // Halo blanco grueso debajo + trazo negro fino encima (para lineas), y
+    // relleno negro con borde blanco (para el triangulo de banderin): se lee
+    // igual sobre relleno claro, oscuro o cualquier color intermedio de la
+    // isopleta/Voronoi -- un solo color de barba se perdia sobre fondos
+    // parecidos, p.ej. blanco sobre las zonas casi-blancas de la escala PRGn
+    // cuando el MFC es ~0.
+    els.forEach(function(el){
+      if (el.tag === 'line'){
+        g.append('line').attr('x1', el.x1).attr('y1', el.y1).attr('x2', el.x2).attr('y2', el.y2)
+          .attr('stroke', '#FFFFFF').attr('stroke-width', 4).attr('stroke-linecap', 'round');
+      } else {
+        g.append('polygon').attr('points', el.pts.map(function(p){ return p.join(','); }).join(' '))
+          .attr('fill', '#111111').attr('stroke', '#FFFFFF').attr('stroke-width', 2.4)
+          .attr('stroke-linejoin', 'round');
+      }
+    });
+    els.forEach(function(el){
+      if (el.tag === 'line'){
+        g.append('line').attr('x1', el.x1).attr('y1', el.y1).attr('x2', el.x2).attr('y2', el.y2)
+          .attr('stroke', '#111111').attr('stroke-width', 1.5).attr('stroke-linecap', 'round');
+      }
+    });
+    g.append('title').text(d.name + ' (' + levelLabel + '): ' + d[dirKey].toFixed(0) + '° / ' + speedKt.toFixed(0) + ' kt (' + d[spdKey].toFixed(1) + ' m/s)');
+  });
+}
+
+function fmtVal(v, decimals){
+  if (v === null || v === undefined) return '—';
+  return Number(v).toFixed(decimals);
+}
+
+function renderInfo(d, cfg){
+  var box = d3.select('#infoBody');
+  box.html('');
+  box.append('div').attr('class','station-name').text(d.name);
+  var rows;
+  if (cfg.dataset === 'temp'){
+    rows = [
+      ['SBCAPE', fmtVal(d.SBCAPE,0)+' J/kg'],
+      ['SBCIN', fmtVal(d.SBCIN,0)+' J/kg' + (d.capped_no_lfc ? ' (tapado/sin LFC)' : '')],
+      ['LCL', fmtVal(d.LCL_hPa,0)+' hPa'],
+      ['T en 500hPa', fmtVal(d.T500,1)+' °C'],
+      ['ΔT sfc-500', fmtVal(d.deltaT_sfc_500,1)+' °C'],
+      ['Lapse 850-500', fmtVal(d.lapse_850_500,2)+' °C/km'],
+      ['T850-T500', fmtVal(d.T850_T500,1)+' °C'],
+      ['Cizalla 0-3km', fmtVal(d.shear_0_3km,1)+' m/s'],
+      ['Cizalla 0-6km', fmtVal(d.shear_0_6km,1)+' m/s'],
+      ['Nivel congelación', fmtVal(d.nivel_cong_m,0)+' m'],
+      ['PWAT', fmtVal(d.PWAT_mm,1)+' mm'],
+      ['Viento 850hPa', (d.wind850_dir!=null? fmtVal(d.wind850_dir,0)+'°/' : '—/') + fmtVal(d.wind850_ms,1)+' m/s'
+        + (d.wind850_ms!=null ? ' (' + (d.wind850_ms*1.943844).toFixed(0) + ' kt)' : '')],
+      ['Índice severidad', fmtVal(d.severity_score,0)+'/100' + (d.severity_categoria ? ' — '+d.severity_categoria : '')],
+      ['SST hoy', d.sst_c!=null ? fmtVal(d.sst_c,1)+' °C (anom. '+(d.sst_anom_c>=0?'+':'')+fmtVal(d.sst_anom_c,1)+' °C)' : '— (interior)'],
+      ['Combustible marino', d.combustible_marino!=null ? fmtVal(d.combustible_marino,2)+' (anom. SST × onshore)' : '—'],
+      ['MFC estación cercana', d.mfc_cercano!=null ? fmtVal(d.mfc_cercano,2)+' ×10⁻⁵ s⁻¹ ('+d.mfc_estacion+', '+fmtVal(d.mfc_dist_km,0)+' km)' : '—'],
+    ];
+  } else {
+    rows = [
+      ['MFC', fmtVal(d.MFC,2)+' ×10⁻⁵ s⁻¹'],
+      ['Confianza MFC', d.confianza + ' (' + d.n_vecinos + ' vecinos)'],
+      ['Temperatura', fmtVal(d.T,1)+' °C'],
+      ['Punto de rocío', fmtVal(d.Td,1)+' °C'],
+      ['Viento', (d.wind_dir!=null? fmtVal(d.wind_dir,0)+'°/' : '—/') + fmtVal(d.wind_ms,1)+' m/s'
+        + (d.wind_ms!=null ? ' (' + (d.wind_ms*1.943844).toFixed(0) + ' kt)' : '')],
+    ];
+  }
+  rows.forEach(function(r){
+    var kv = box.append('div').attr('class','kv');
+    kv.append('span').attr('class','k').text(r[0]);
+    kv.append('span').attr('class','v').text(r[1]);
+  });
+  if (cfg.dataset === 'temp' && d.capped_no_lfc){
+    box.append('div').attr('class','flag').text('Sondeo capado: sin LFC claro, CIN acotado a 300hPa');
+  }
+}
+
+function render(){
+  var cfg = KPIS[currentKpiKey];
+  d3.select('#kpiDesc').text(cfg.desc);
+  var meta = DATA.meta || {};
+  if (cfg.dataset === 'temp'){
+    d3.select('#dataTime').text('Datos de sondeo: ' + (meta.temp_reference_note || ''));
+  } else {
+    d3.select('#dataTime').text('Datos SYNOP de superficie descargados con hora de validez ' + (meta.synop_reference_time || '') + '. ' + (meta.generated_note || ''));
+  }
+  var pts = pointsFor(currentKpiKey);
+  var scale = colorScale(cfg);
+
+  // leyenda
+  var legendSteps = 10;
+  var lo = cfg.domain[0], hi = cfg.domain[1];
+  var css = 'linear-gradient(90deg,' + d3.range(legendSteps+1).map(function(i){
+    var t = i/legendSteps;
+    var v = lo + t*(hi-lo);
+    return scale(v) + ' ' + (t*100) + '%';
+  }).join(',') + ')';
+  d3.select('#legendBar').style('background', css);
+  d3.select('#legendMin').text(fmtVal(lo, cfg.decimals) + ' ' + cfg.unit);
+  d3.select('#legendMax').text(fmtVal(hi, cfg.decimals) + ' ' + cfg.unit);
+
+  // El encuadre se calcula a partir del area donde hay estaciones (con margen),
+  // no a partir de la extension completa de los 5 paises: los topojson por
+  // pais incluyen todo el territorio nacional (media Francia, todo Marruecos
+  // hasta el Sahara, etc.), y encuadrar por ahi deja la zona de interes real
+  // (la corona costera) como un punto minusculo en medio del mapa.
+  projection.fitExtent([[16,16],[W-16,H-16]], REGION_BBOX);
+
+  var xy = pts.map(function(d){ return projection([d.lon, d.lat]); });
+
+  voronoiG.selectAll('*').remove();
+  contourG.selectAll('*').remove();
+  maskG.selectAll('*').remove();
+
+  if (renderMode === 'voronoi'){
+    if (pts.length >= 3){
+      var delaunay = d3.Delaunay.from(xy);
+      var voronoi = delaunay.voronoi([0,0,W,H]);
+      voronoiG.selectAll('path').data(pts).join('path')
+        .attr('class','voronoi-cell')
+        .attr('d', function(d,i){ return voronoi.renderCell(i); })
+        .attr('fill', function(d){ return scale(d[cfg.key]); });
+    }
+  } else if (pts.length >= 4){
+    // Cressman: pasada 1 (radio grande, cubre casi toda la zona) + pasada 2
+    // (radio pequeno, refina donde hay densidad de estaciones suficiente).
+    // pxPerKm se calcula de verdad a partir de la proyeccion ya encuadrada
+    // (1 grado de longitud en la latitud media de la caja), no de una cifra
+    // fija -- la caja de encuadre cambia de tamano segun cuantas estaciones
+    // tenga el KPI activo (12 de sondeo vs 22 de SYNOP).
+    var latMid = (function(){
+      var lats = pts.map(function(d){ return d.lat; });
+      return (Math.min.apply(null, lats) + Math.max.apply(null, lats)) / 2;
+    })();
+    var lonMid = pts[0].lon;
+    var pA = projection([lonMid, latMid]), pB = projection([lonMid + 1, latMid]);
+    var pxPerDegLon = Math.hypot(pB[0]-pA[0], pB[1]-pA[1]);
+    var kmPerDegLon = 111.32 * Math.cos(latMid * Math.PI/180);
+    var pxPerKm = pxPerDegLon / kmPerDegLon;
+    var R1 = 320 * pxPerKm, R2 = 140 * pxPerKm;
+    var NX = 100, NY = 78;
+    var cg = buildCressmanGrid(pts, xy, cfg.key, W, H, NX, NY, R1, R2);
+
+    var thresholds = d3.range(11).map(function(i){ return cfg.domain[0] + i*(cfg.domain[1]-cfg.domain[0])/10; });
+    var contourGen = d3.contours().size([cg.nx, cg.ny]).thresholds(thresholds);
+    var dx = W/cg.nx, dy = H/cg.ny;
+    var bands = contourGen(cg.grid.map(function(v){ return isNaN(v) ? cfg.domain[0]-1e9 : v; }));
+    contourG.selectAll('path').data(bands).join('path')
+      .attr('class','contour-band')
+      .attr('fill', function(d){ return scale(d.value); })
+      .attr('transform', 'scale(' + dx + ',' + dy + ')')
+      .attr('d', d3.geoPath());
+
+    // Trama de "sin cobertura": celdas cuya estacion mas cercana esta a mas de
+    // MASK_KM -- ahi el valor de Cressman existe pero es una extrapolacion
+    // larga, no una medida real cercana.
+    var MASK_KM = 220;
+    var maskDomain = MASK_KM * pxPerKm;
+    var coverageVals = cg.nearestDist.map(function(d){ return d > maskDomain ? 1 : 0; });
+    var maskContour = d3.contours().size([cg.nx, cg.ny]).thresholds([0.5])(coverageVals);
+    maskG.selectAll('path').data(maskContour).join('path')
+      .attr('class', 'coverage-mask')
+      .attr('transform', 'scale(' + dx + ',' + dy + ')')
+      .attr('d', d3.geoPath());
+  }
+
+  // estaciones
+  stationsG.selectAll('circle').data(pts, function(d){ return d.name; }).join('circle')
+    .attr('class','station-dot')
+    .attr('cx', function(d,i){ return xy[i][0]; })
+    .attr('cy', function(d,i){ return xy[i][1]; })
+    .attr('r', 6)
+    .attr('fill', function(d){ return scale(d[cfg.key]); })
+    .on('click', function(ev,d){
+      selectedStation = d.name;
+      stationsG.selectAll('circle').classed('selected', function(o){ return o.name === selectedStation; });
+      renderInfo(d, cfg);
+    })
+    .append('title').text(function(d){ return d.name + ': ' + fmtVal(d[cfg.key], cfg.decimals) + ' ' + cfg.unit; });
+
+  // barbas de viento (nudos): en el KPI de MFC se dibuja el viento de
+  // superficie (red SYNOP); en los KPIs de sondeo (red TEMP) se dibuja el
+  // viento a 850hPa (de la propia cabecera TTAA), relevante en el
+  // Mediterraneo como transporte de aire/humedad marina hacia la costa.
+  if (cfg.dataset === 'mfc'){
+    drawWindBarbs(barbsG, pts, xy, 'wind_dir', 'wind_ms', 'superficie');
+  } else if (cfg.dataset === 'temp'){
+    drawWindBarbs(barbsG, pts, xy, 'wind850_dir', 'wind850_ms', '850hPa');
+  } else {
+    barbsG.selectAll('*').remove();
+  }
+}
+
+loadCountries().then(function(shown){
+  window.__countries = shown;
+  landG.selectAll('path').data(shown).join('path')
+    .attr('fill', '#16233D').attr('stroke', '#24344F').attr('stroke-width', 1);
+  bordersG.selectAll('path').data(shown).join('path').attr('class', 'coast-line');
+  render();
+  landG.selectAll('path').attr('d', pathGen);
+  bordersG.selectAll('path').attr('d', pathGen);
+}).catch(function(err){
+  d3.select('#mapCard').insert('p', 'svg').attr('style','font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--text-dim);')
+    .text('No se ha podido cargar la topología del mapa base (sin conexión al CDN). Mostrando solo estaciones sin fondo geográfico.');
+  render();
+});
+</script>
+</body>
+</html>
