@@ -23,6 +23,8 @@ de él.
 - ESTOFEX — resumen editorial + imagen en vivo del mapa (`<img id="estofexMap">`)
 - OLA DE CALOR MARINA — tarjeta de estadísticas (.statgrid) + párrafos
 - RIESGO DE INCENDIO — regla 30-30-30 calculada por Claude (ver sección propia abajo)
+- ÍNDICE DE SEVERIDAD COMPUESTO — heurística propia sobre CAPE/cizalla/gradiente térmico/CIN/MFC/combustible marino (ver sección propia abajo)
+- MAPA INTERACTIVO DE KPIs — selector de KPI + mapa Cressman/Voronoi + skew-T por estación (mismos datos que el índice de severidad)
 - TEMPERATURA DEL MAR — enlaces (Copernicus Marine, SOCIB)
 - RIESGO FLUVIAL — enlaces ACA/SAIH Catalunya, SAIH Ebro, SAIH Júcar (caudales y embalses en tiempo real)
 - TERREMOTOS — enlace IGN visualizador de terremotos próximos
@@ -132,6 +134,85 @@ hace falta tocar esa parte del script. Si se añade o quita una estación de
 la lista de texto, añadir/quitar también su entrada en `fireStations` para
 que el mapa y el texto no diverjan.
 
+## Pipeline de sondeos TTAA/TTBB + SYNOP — índice de severidad y mapa de KPIs (añadido 26/07/2026 noche)
+Scripts en la raíz del repo (`temp_decoder.py`, `synop_decoder.py`, `compute_kpis.py`,
+`mfc.py`, `sst_data.py`, `severity_index.py`, `build_map_data.py`) que generan los
+datos de las tarjetas ÍNDICE DE SEVERIDAD COMPUESTO y MAPA INTERACTIVO DE KPIs dentro
+de `index.html`, la página independiente `mapa_kpis_prototipo.html`, y las 14 filas
+SYNOP del array `fireStations` de RIESGO DE INCENDIO.
+
+**Por qué existen:** hasta esta fecha ambos mapas se habían generado a mano, una única
+vez, en una sesión de Cowork con acceso de red sin restricciones — un "snapshot" que no
+se actualizaba solo. El usuario pidió que se refrescara cada vez que se ejecuta la
+actualización diaria del panel, así que el pipeline quedó escrito y versionado para
+poder repetirse.
+
+**Arquitectura (restricción real, no evitable):** el sandbox de shell de Cowork bloquea
+el acceso de red a ogimet.com (`403 Forbidden, blocked-by-allowlist`), que es la única
+fuente gratuita y sin registro de sondeos TEMP (TTAA/TTBB) y SYNOP para estaciones
+europeas. El navegador Claude in Chrome sí tiene red sin restricciones. Por eso el flujo
+es obligatoriamente en tres pasos:
+
+1. **Fetch (navegador):** navegar a `https://www.ogimet.com/display_sond.php?...`
+   (sondeos) y `https://www.ogimet.com/display_synops.php?...` (SYNOP) y volcar el
+   texto plano de cada estación. Para transferir texto largo (decenas de KB) del
+   navegador al agente sin sufrir el truncamiento silencioso (~800-1000 caracteres) de
+   `javascript_tool`, escribirlo en un `<pre>` vía `document.body.innerHTML`
+   (escapando `&`/`<`) y leerlo con `get_page_text`, o parsear con `DOMParser`. Guardar
+   el volcado de todas las estaciones en un único fichero de texto con marcadores
+   `===STATION_<id>_START===...===STATION_<id>_END===`
+   (`raw_ttaa_YYYYMMDD.txt`, `raw_synop_YYYYMMDD.txt`).
+
+2. **Procesado (shell, Python):**
+   `python3 build_map_data.py raw_ttaa_YYYYMMDD.txt raw_synop_YYYYMMDD.txt --out
+   map_data.json --fire-out fire_synop_update.json --severity-out
+   severity_summary.json`. Requiere `metpy`, `numpy`, `pymetdecoder`
+   (`pip install --break-system-packages metpy numpy pymetdecoder`).
+
+3. **Publicación (navegador, "Upload files"):** minificar `map_data.json`
+   (`json.dumps(d, ensure_ascii=False, separators=(',',':'))`) e inyectarlo tal cual —
+   reemplazando solo el contenido entre etiquetas, igual que las demás secciones — en
+   `<script id="kpimapDataJson" type="application/json">` (`index.html`) y
+   `<script id="mapDataJson" type="application/json">` (`mapa_kpis_prototipo.html`).
+   Con `severity_summary.json`, reescribir a mano el `lvlbar` y los párrafos de la
+   tarjeta ÍNDICE DE SEVERIDAD COMPUESTO. Con `fire_synop_update.json`, reescribir las
+   14 filas `SYNOP` del array `fireStations` — buscar cada fila por su `name` exacto y
+   sustituir solo `t`/`hr`/`wind`, nunca `lat`/`lon`.
+
+**Estaciones de sondeo (TEMP, 12):** Barcelona 08190, Palma/Son Bonet 08302, Murcia
+08430, Nimes/Courbessac 07645, Ajaccio 07761, Argel/Dar El Beida 60390, A Coruña 08001,
+Santander 08023, Madrid/Barajas 08221, Huelva 08383, Lisboa/Portela 08536,
+Bordeaux/Merignac 07510.
+
+**Estaciones SYNOP (22, para MFC — 14 de ellas duplican como filas SYNOP del mapa de
+incendio):** ver los diccionarios `TEMP_STATIONS`/`MFC_STATIONS`/`FIRE_SYNOP_IDS` al
+principio de `build_map_data.py` — es la fuente de verdad, no duplicar la lista aquí.
+
+**Qué calcula cada script:**
+- `temp_decoder.py`: decodificador de TEMP (TTAA/TTBB) escrito desde cero (no existe
+  librería en PyPI) — niveles mandatorios y significativos, viento, altura geopotencial.
+- `synop_decoder.py`: envuelve la librería `pymetdecoder` para SYNOP (AAXX); incluye
+  un fallback que trunca en ` 333` si falla el decodificado de la sección 3 (visto con
+  Ajaccio 07761 y su código de insolación francés no soportado).
+- `compute_kpis.py`: SBCAPE/SBCIN/LCL/PWAT/cizalla 0-3km y 0-6km/lapse rate 850-500/
+  nivel de congelación vía MetPy.
+- `mfc.py`: convergencia de humedad (MFC) por ajuste planar de mínimos cuadrados sobre
+  los vecinos más próximos de cada estación SYNOP.
+- `sst_data.py`: tabla de referencia de SST/anomalía por subregión marina (no hay API
+  gratuita sin registro con dato por punto) + componente de viento entrante a la costa
+  → "combustible marino".
+- `severity_index.py`: fórmula publicada en la propia tarjeta (CAPE + cizalla +
+  gradiente térmico, atenuados por `e^-|CIN|/150`, más MFC y combustible marino).
+- `build_map_data.py`: orquestador — decodifica, calcula, empareja cada estación de
+  sondeo con su SYNOP más cercana, y escribe los tres JSON de salida.
+
+**Limitaciones conocidas, aceptadas:** TTDD (niveles significativos por debajo de
+100hPa) no se decodifica — no afecta a CAPE/CIN/cizalla/PWAT, todos muy por encima de
+100hPa. Madrid/Barajas puede salir con `lapse_850_500`/`shear_0_6km`/`nivel_cong_m` a
+`null` en sondeos donde falta el dato de viento en algún nivel — no bloquea el resto
+del cálculo. La SST es una tabla de referencia por subregión, no un dato en vivo por
+punto — coherente con lo que ya hacía a mano la tarjeta OLA DE CALOR MARINA.
+
 ## Historial — qué se intentó, qué se quitó, y por qué
 Importante: lo que sigue ocurrió probando el artifact DENTRO del sandbox de
 claude.ai, antes de desplegar en GitHub Pages. Ese sandbox bloquea peticiones
@@ -186,13 +267,19 @@ navegador no sufre ese mismo caché obsoleto en la práctica observada.
 ## Tarea programada existente
 Nombre: "meteo-panel-actualizacion-diaria"
 Cadencia: diaria 11:00 hora local (+ ejecutable a demanda con "Run now")
-Qué hace: lee este CONTEXT.md, actualiza SÍNTESIS CORTO PLAZO, ESTOFEX
-(texto), OLA DE CALOR MARINA y RIESGO DE INCENDIO (regla 30-30-30)
-consultando fuentes web, y publica el cambio **directamente en `main`**
-subiendo el `index.html` completo vía "Upload files" (sin Pull Request —
-el usuario desactivó el paso de revisión el 25/07/2026). Si alguna fuente
-no responde, dejar esa sección tal cual y anotarlo en la descripción del
-commit.
+Qué hace: lee este CONTEXT.md, actualiza SÍNTESIS CORTO PLAZO, ESTOFEX (texto), OLA DE
+CALOR MARINA y RIESGO DE INCENDIO (regla 30-30-30) consultando fuentes web; **además,
+desde el 26/07/2026 (noche), ejecuta el pipeline de sondeos descrito arriba** (fetch
+Ogimet vía navegador → `build_map_data.py` → inyección del JSON minificado en
+`index.html` y `mapa_kpis_prototipo.html` → reescritura manual del índice de severidad
+y las 14 filas SYNOP del mapa de incendio) para que esas dos tarjetas no queden nunca
+como un snapshot fijo. Publica el cambio **directamente en `main`** subiendo cada
+fichero completo vía "Upload files" (sin Pull Request — el usuario desactivó el paso
+de revisión el 25/07/2026). Si Ogimet no responde o algún sondeo no se puede
+decodificar, dejar el índice de severidad / mapa de KPIs / filas SYNOP con su último
+valor y anotarlo en la descripción del commit — nunca bloquear el resto de la
+actualización diaria por esto. Si alguna otra fuente no responde, dejar esa sección tal
+cual y anotarlo también en la descripción del commit.
 
 ## Convención para añadir enlaces nuevos
 Formato de cada enlace en las secciones de tipo "linklist":
