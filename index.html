@@ -360,7 +360,7 @@ Selector con los KPIs calculados en esta sesión —SBCAPE, SBCIN, gradiente T85
 <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Solo disponible para estaciones de sondeo (TEMP) — la red SYNOP no tiene perfil vertical, solo dato de superficie. Perfil = niveles mandatorios + significativos usados para el propio cálculo de CAPE/CIN. Adiabáticas secas y razón de mezcla: fórmula cerrada. Adiabáticas húmedas: integradas numéricamente con la misma física del cálculo de CAPE/CIN (curvas universales, no dependen de la estación).</p>
 </div>
 <div class="snapshot-note">
-Prototipo interactivo construido por Claude sobre los mismos sondeos y SYNOP del <b>domingo 26 de julio de 2026 (~11-12Z sondeos, 21Z SYNOP)</b>. No se ha regenerado hoy lunes 27 de julio (ver nota de la tarjeta "Índice de severidad compuesto" de arriba) — se reintentará en la próxima actualización diaria. También existe como página independiente (<a href="mapa_kpis_prototipo.html" target="_blank" rel="noopener">mapa_kpis_prototipo.html ↗</a>) por si prefieres verlo a pantalla completa.
+Mapa regenerado hoy <b>lunes 27 de julio de 2026</b> con los mismos datos que la tarjeta "Índice de severidad compuesto" de arriba: sondeo TTAA/TTBB de las 12 estaciones (Ogimet, 26/07 23Z y 27/07 00Z según estación) y red SYNOP hasta las 06Z. También existe como página independiente (<a href="mapa_kpis_prototipo.html" target="_blank" rel="noopener">mapa_kpis_prototipo.html ↗</a>), actualizada igualmente hoy con el mismo conjunto de datos, por si prefieres verlo a pantalla completa.
 </div>
 </div>
 
@@ -1091,8 +1091,9 @@ var fireStations = [
 // estaciones SYNOP que coinciden en coordenadas con un METAR/XEMA ya presente
 // arriba (Girona, Barcelona, Reus, Alicante, Palma, Ibiza, Menorca, Valencia).
 // Actualizado 27/07/2026 ~07:45 CEST: pipeline de sondeos ejecutado con datos
-// Ogimet de hoy (TTAA/TTBB 11-12Z 26/07 + SYNOP hasta 06Z 27/07). Ver tarjeta
-// "Índice de severidad compuesto" para el detalle del cálculo.
+// Ogimet de hoy (red SYNOP hasta las 06Z del 27/07). Ver tarjeta
+// "Índice de severidad compuesto" para el detalle del cálculo (sondeos TTAA/TTBB
+// del 26/07 23Z y 27/07 00Z según estación).
 {name:'Castellón-Almazora (08286, SYNOP)', lat:39.997, lon:-0.054, t:22.4, hr:51, wind:10.8},
 {name:'Almería/aeropuerto (08487, SYNOP)', lat:36.844, lon:-2.358, t:24.5, hr:68, wind:21.6},
 {name:'Zaragoza (08159, SYNOP)', lat:41.666, lon:-1.042, t:20.3, hr:65, wind:10.8},
