@@ -284,3 +284,12 @@ cual y anotarlo también en la descripción del commit.
 ## Convención para añadir enlaces nuevos
 Formato de cada enlace en las secciones de tipo "linklist":
 <a href="URL" target="_blank" rel="noopener">Nombre — descripción corta<small>Detalle</small></a>
+
+## Índices de estabilidad RAOB + hodógrafo (06/08/2026)
+Añadidos al mapa interactivo de KPIs (ambas copias, index.html y mapa_kpis_prototipo.html):
+tabla de índices de estabilidad por estación de sondeo (K, TT, CT, VT, LI, SI, SWEAT, Boyden,
+VGP, Tc/CCL, Haines, storm motion, SRH 0-1/0-3km, EHI, BRN, SCP, STP) y un panel de hodógrafo
+con el perfil de viento por nivel y el vector de movimiento de tormenta (método de Bunkers,
+vía MetPy). Cálculo en compute_kpis.py (ver docstring del módulo). Los 12 nuevos índices
+también son seleccionables como capa de color en el desplegable del mapa. Mención del
+Índice Haines de hoy añadida a la tarjeta de riesgo de incendio.
