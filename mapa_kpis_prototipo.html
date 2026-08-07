@@ -135,6 +135,11 @@ font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 <span style="color:#E24E4E;">●</span> movimiento de tormenta (Bunkers, right-mover)
 </p>
 <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Construido con los niveles que reportan viento en la TTAA (normalmente 6-10 de 12) -- resolución menor que un hodógrafo de alta densidad. Vector de tormenta: método de Bunkers (right-mover) vía MetPy sobre el mismo perfil u/v del sondeo.</p>
+<div id="windProfileWrap" style="display:none;margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);">
+<div class="station-name" style="font-size:12.5px;">Viento por altura (lectura secuencial)</div>
+<svg id="windProfileSvg" viewBox="0 0 480 190" width="100%" role="img" aria-label="Dirección y velocidad del viento por altura"></svg>
+<p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Mismos datos que el hodógrafo, pero con la altura siempre creciendo de izquierda a derecha -- útil para seguir cómo cambia el viento nivel a nivel sin los cruces del hodógrafo (que sí son reales: el viento puede rotar y "volver" en el plano velocidad-dirección).</p>
+</div>
 <div id="stormCharWrap" style="display:none;margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);">
 <div class="station-name" style="font-size:12.5px;">Carácter de la tormenta esperado (CAPE vs cizalla 0-6km)</div>
 <svg id="stormCharSvg" viewBox="0 0 300 220" style="width:100%;max-width:300px;display:block;" role="img" aria-label="Nomograma de tipo de tormenta esperado"></svg>
@@ -644,10 +649,11 @@ g.selectAll('circle.lvl').data(pts).join('circle').attr('class','lvl')
 .attr('r', 3.5).attr('fill','#F2C14E').attr('stroke','#0A1120').attr('stroke-width',1)
 .append('title').text(function(p){ return Math.round(p.h_km*10)/10+'km / '+p.p+'hPa';});
 
-g.selectAll('text.lvl-label').data(pts.filter(function(p,i){return i%3===0 || i===pts.length-1;}))
+g.selectAll('text.lvl-label').data(pts)
 .join('text').attr('class','lvl-label')
-.attr('x', function(p){return p.u*scale+5;}).attr('y', function(p){return -p.v*scale+3;})
-.attr('font-size',7).attr('fill','#7C8AA8').text(function(p){return Math.round(p.h_km*10)/10+'km';});
+.attr('x', function(p,i){return p.u*scale + (i%2===0 ? 5 : -5);}).attr('y', function(p,i){return -p.v*scale + (i%2===0 ? 3 : -5);})
+.attr('text-anchor', function(p,i){return i%2===0 ? 'start' : 'end';})
+.attr('font-size',6).attr('fill','#7C8AA8').text(function(p){return Math.round(p.h_km*10)/10+'km';});
 
 if (d.storm_motion){
 var uvS = hodoWindUV(d.storm_motion.dir, d.storm_motion.speed_kt);
@@ -658,6 +664,51 @@ g.append('circle').attr('cx',uvS[0]*scale).attr('cy',-uvS[1]*scale).attr('r',4.5
 .append('title').text('Movimiento de tormenta: '+d.storm_motion.dir+'°/'+d.storm_motion.speed_kt+'kt (Bunkers, right-mover)');
 g.append('text').attr('x',uvS[0]*scale+7).attr('y',-uvS[1]*scale+3).attr('font-size',8.5).attr('fill','#E24E4E').text('tormenta');
 }
+drawWindProfile(d);
+}
+
+function drawWindProfile(d){
+var wrap = d3.select('#windProfileWrap');
+var pts = (d.wind_profile||[]).filter(function(w){ return w.dir!=null && w.speed_kt!=null; }).map(function(w){
+return {h_km: w.h_m/1000, dir: w.dir, spd: w.speed_kt};
+}).sort(function(a,b){ return a.h_km-b.h_km; });
+if (pts.length < 2){ wrap.style('display','none'); return; }
+wrap.style('display', null);
+var svg = d3.select('#windProfileSvg');
+svg.selectAll('*').remove();
+var W = 480, H = 190, padL = 30, padR = 8, padT = 8, padB = 28, gap = 24;
+var panelW = (W - padL - padR - gap)/2;
+var maxH = Math.max.apply(null, pts.map(function(p){return p.h_km;}));
+var xScale = d3.scaleLinear().domain([0, maxH]).range([0, panelW]);
+var yDir = d3.scaleLinear().domain([0,360]).range([H-padB, padT]);
+var maxSpd = Math.ceil(Math.max.apply(null, pts.map(function(p){return p.spd;}).concat([20]))/10)*10;
+var ySpd = d3.scaleLinear().domain([0, maxSpd]).range([H-padB, padT]);
+
+function panel(gSel, yScale, key, color, yTicks){
+gSel.append('line').attr('x1',0).attr('y1',H-padB).attr('x2',panelW).attr('y2',H-padB).attr('stroke','#24344F');
+gSel.append('line').attr('x1',0).attr('y1',padT).attr('x2',0).attr('y2',H-padB).attr('stroke','#24344F');
+yTicks.forEach(function(t){
+gSel.append('line').attr('x1',0).attr('y1',yScale(t)).attr('x2',panelW).attr('y2',yScale(t)).attr('stroke','#1B2942').attr('stroke-width',0.5);
+gSel.append('text').attr('x',-4).attr('y',yScale(t)+3).attr('text-anchor','end').attr('font-size',7).attr('fill','#7C8AA8').text(Math.round(t));
+});
+var hStep = Math.max(1, Math.round(maxH/4));
+d3.range(0, maxH+0.01, hStep).forEach(function(hv){
+gSel.append('text').attr('x', xScale(hv)).attr('y', H-padB+12).attr('text-anchor','middle').attr('font-size',7).attr('fill','#7C8AA8').text(Math.round(hv)+'km');
+});
+var lineGen = d3.line().x(function(p){return xScale(p.h_km);}).y(function(p){return yScale(p[key]);});
+gSel.append('path').datum(pts).attr('d', lineGen).attr('fill','none').attr('stroke',color).attr('stroke-width',1.3);
+gSel.selectAll('circle').data(pts).join('circle')
+.attr('cx', function(p){return xScale(p.h_km);}).attr('cy', function(p){return yScale(p[key]);})
+.attr('r',2.2).attr('fill',color);
+}
+
+var g1 = svg.append('g').attr('transform','translate('+padL+',0)');
+panel(g1, yDir, 'dir', '#5AA9E6', [0,90,180,270,360]);
+g1.append('text').attr('x', panelW/2).attr('y', H-6).attr('text-anchor','middle').attr('font-size',8).attr('fill','#7C8AA8').text('Dirección (°) vs altura');
+
+var g2 = svg.append('g').attr('transform','translate('+(padL+panelW+gap)+',0)');
+panel(g2, ySpd, 'spd', '#F2C14E', d3.range(0, maxSpd+0.01, maxSpd/4));
+g2.append('text').attr('x', panelW/2).attr('y', H-6).attr('text-anchor','middle').attr('font-size',8).attr('fill','#7C8AA8').text('Velocidad (kt) vs altura');
 }
 
 var SKEWT_P_BOT = 1050, SKEWT_P_TOP = 100;
