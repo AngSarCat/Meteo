@@ -103,7 +103,7 @@ font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 </div>
 <div class="card" id="skewtCard" style="display:none;margin-top:16px;">
 <h2>Perfil vertical (skew-T) · <span id="skewtStationName"></span></h2>
-<svg id="skewtSvg" viewBox="0 0 720 480" width="100%" role="img" aria-label="Diagrama skew-T log-P del sondeo seleccionado"></svg>
+<svg id="skewtSvg" viewBox="0 0 810 480" width="100%" role="img" aria-label="Diagrama skew-T log-P del sondeo seleccionado, con barbas de viento por nivel"></svg>
 <p style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text-dim);margin:6px 0 0;">
 <span style="color:#E24E4E;">■</span> temperatura ambiente
 <span style="color:#37D6C4;">■</span> punto de rocío ambiente
@@ -112,6 +112,7 @@ font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 <span style="color:#4A3F2A;">╱</span> adiabáticas secas
 <span style="color:#2A4A46;">╱</span> adiabáticas húmedas
 <span style="color:#4A2A3F;">┄</span> razón de mezcla (1-24 g/kg, hasta 400hPa)
+<span style="color:#F2C14E;">╲</span> barbas de viento por nivel (columna derecha, nudos)
 </p>
 <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Solo disponible para estaciones de sondeo (TEMP) — la red SYNOP no tiene perfil vertical, solo dato de superficie. Perfil = niveles mandatorios + significativos usados para el propio cálculo de CAPE/CIN. Adiabáticas secas y razón de mezcla: fórmula cerrada. Adiabáticas húmedas: integradas numéricamente con la misma física del cálculo de CAPE/CIN (curvas universales, no dependen de la estación).</p>
 </div>
@@ -134,6 +135,12 @@ font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 <span style="color:#E24E4E;">●</span> movimiento de tormenta (Bunkers, right-mover)
 </p>
 <p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Construido con los niveles que reportan viento en la TTAA (normalmente 6-10 de 12) -- resolución menor que un hodógrafo de alta densidad. Vector de tormenta: método de Bunkers (right-mover) vía MetPy sobre el mismo perfil u/v del sondeo.</p>
+<div id="stormCharWrap" style="display:none;margin-top:14px;padding-top:10px;border-top:1px dashed var(--border);">
+<div class="station-name" style="font-size:12.5px;">Carácter de la tormenta esperado (CAPE vs cizalla 0-6km)</div>
+<svg id="stormCharSvg" viewBox="0 0 300 220" style="width:100%;max-width:300px;display:block;" role="img" aria-label="Nomograma de tipo de tormenta esperado"></svg>
+<p id="stormCharLabel" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--warm);margin:4px 0 0;"></p>
+<p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:4px 0 0;">Heurística orientativa a partir de CAPE de superficie y cizalla 0-6km (umbrales aproximados, no un producto oficial ni un pronóstico determinista de modo de tormenta).</p>
+</div>
 </div>
 <footer>Prototipo generado a partir de TEMP (TTAA/TTBB, decodificador propio) y SYNOP (AAXX) descargados de Ogimet. CAPE/CIN: Bolton (1980) + ascenso pseudoadiabático. MFC: ajuste de plano de mínimos cuadrados al flujo de humedad sobre vecinos más próximos. Ver limitaciones y supuestos en los scripts fuente.</footer>
 </div>
@@ -333,10 +340,11 @@ return d3.scaleDiverging(function(t){ return cfg.scheme(t); }).domain([cfg.domai
 return d3.scaleSequential(cfg.scheme).domain(cfg.domain);
 }
 
-function windBarbElements(speedKt){
-var shaftLen = 26, step = 4.4, barbLen = 9.5, angleDeg = 55;
+function windBarbElements(speedKt, scale){
+scale = scale || 1;
+var shaftLen = 26*scale, step = 4.4*scale, barbLen = 9.5*scale, angleDeg = 55;
 var rad = angleDeg * Math.PI / 180;
-var els = [{tag: 'line', x1: 0, y1: 2, x2: 0, y2: -shaftLen}];
+var els = [{tag: 'line', x1: 0, y1: 2*scale, x2: 0, y2: -shaftLen}];
 var v = Math.round(speedKt / 5) * 5;
 if (v <= 0) return els;
 var pennants = Math.floor(v / 50); v -= pennants * 50;
@@ -400,6 +408,67 @@ function fmtVal(v, decimals){
 if (v === null || v === undefined) return '—';
 return Number(v).toFixed(decimals);
 }
+function stormCharZone(cape, shear){
+if (cape == null || shear == null) return null;
+if (shear < 10) return 0;
+if (shear < 18) return cape < 500 ? 0 : 1;
+return cape < 500 ? 1 : 2;
+}
+var STORMCHAR_LABELS = ['Células ordinarias / pulso', 'Multicélulas', 'Supercélulas posibles'];
+var STORMCHAR_COLORS = ['#4CAF50', '#F2C14E', '#E24E4E'];
+
+function drawStormChar(d){
+var wrap = d3.select('#stormCharWrap');
+if (d.SBCAPE == null || d.shear_0_6km == null){
+wrap.style('display', 'none');
+return;
+}
+wrap.style('display', null);
+var svg = d3.select('#stormCharSvg');
+svg.selectAll('*').remove();
+var W = 300, H = 220, marginL = 34, marginB = 24, marginT = 8, marginR = 8;
+var innerW = W - marginL - marginR, innerH = H - marginT - marginB;
+var xMax = 40, yMax = 4000;
+var xScale = d3.scaleLinear().domain([0, xMax]).range([0, innerW]);
+var yScale = d3.scaleLinear().domain([0, yMax]).range([innerH, 0]);
+var g = svg.append('g').attr('transform', 'translate('+marginL+','+marginT+')');
+var zones = [
+{x0:0, x1:10, color:'#1d3a1f'},
+{x0:10, x1:18, color:'#3a3420'},
+{x0:18, x1:40, color:'#3a2020'}
+];
+zones.forEach(function(z){
+g.append('rect').attr('x', xScale(z.x0)).attr('y', 0)
+.attr('width', xScale(z.x1)-xScale(z.x0)).attr('height', innerH)
+.attr('fill', z.color);
+});
+g.append('rect').attr('x', xScale(18)).attr('y', yScale(500))
+.attr('width', innerW-xScale(18)).attr('height', innerH-yScale(500))
+.attr('fill', '#3a3420');
+g.append('line').attr('x1',0).attr('x2',innerW).attr('y1',innerH).attr('y2',innerH).attr('stroke','#24344F');
+g.append('line').attr('x1',0).attr('x2',0).attr('y1',0).attr('y2',innerH).attr('stroke','#24344F');
+[0,10,20,30,40].forEach(function(v){
+g.append('text').attr('x', xScale(v)).attr('y', innerH+12).attr('text-anchor','middle')
+.attr('font-size',8).attr('fill','#7C8AA8').text(v);
+});
+[0,1000,2000,3000,4000].forEach(function(v){
+g.append('text').attr('x', -6).attr('y', yScale(v)+3).attr('text-anchor','end')
+.attr('font-size',8).attr('fill','#7C8AA8').text(v);
+});
+g.append('text').attr('x', innerW/2).attr('y', innerH+22).attr('text-anchor','middle')
+.attr('font-size',8.5).attr('fill','#7C8AA8').text('Cizalla 0-6km (m/s)');
+g.append('text').attr('x', -marginL+4).attr('y', -2).attr('font-size',8.5).attr('fill','#7C8AA8').text('CAPE (J/kg)');
+var zone = stormCharZone(d.SBCAPE, d.shear_0_6km);
+var cx = xScale(Math.min(d.shear_0_6km, xMax));
+var cy = yScale(Math.min(d.SBCAPE, yMax));
+g.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 5)
+.attr('fill', zone!=null ? STORMCHAR_COLORS[zone] : '#EDEDED')
+.attr('stroke', '#0A1120').attr('stroke-width', 1.2);
+d3.select('#stormCharLabel').text(
+zone != null ? STORMCHAR_LABELS[zone] + ' (CAPE ' + Math.round(d.SBCAPE) + ' J/kg, cizalla ' + d.shear_0_6km.toFixed(1) + ' m/s)' : '—'
+);
+}
+
 function renderInfo(d, cfg){
 var box = d3.select('#infoBody');
 box.html('');
@@ -447,10 +516,12 @@ if (cfg.dataset === 'temp' && d.profile_p && d.profile_p.length){
 drawSkewT(d);
 renderStabTable(d);
 drawHodograph(d);
+drawStormChar(d);
 } else {
 d3.select('#skewtCard').style('display', 'none');
 d3.select('#stabCard').style('display', 'none');
 d3.select('#hodoCard').style('display', 'none');
+d3.select('#stormCharWrap').style('display', 'none');
 }
 }
 
@@ -566,17 +637,17 @@ g.append('line').attr('x1',0).attr('y1',0)
 g.append('text').attr('x',0).attr('y',-maxSpd*scale-6).attr('text-anchor','middle').attr('font-size',9).attr('fill','#7C8AA8').text('N');
 
 var lineGen = d3.line().x(function(p){return p.u*scale;}).y(function(p){return -p.v*scale;});
-g.append('path').datum(pts).attr('d', lineGen).attr('fill','none').attr('stroke','#F2C14E').attr('stroke-width',2);
+g.append('path').datum(pts).attr('d', lineGen).attr('fill','none').attr('stroke','#F2C14E').attr('stroke-width',1.2);
 
 g.selectAll('circle.lvl').data(pts).join('circle').attr('class','lvl')
 .attr('cx', function(p){return p.u*scale;}).attr('cy', function(p){return -p.v*scale;})
 .attr('r', 3.5).attr('fill','#F2C14E').attr('stroke','#0A1120').attr('stroke-width',1)
 .append('title').text(function(p){ return Math.round(p.h_km*10)/10+'km / '+p.p+'hPa';});
 
-g.selectAll('text.lvl-label').data(pts.filter(function(p,i){return i%2===0 || i===pts.length-1;}))
+g.selectAll('text.lvl-label').data(pts.filter(function(p,i){return i%3===0 || i===pts.length-1;}))
 .join('text').attr('class','lvl-label')
-.attr('x', function(p){return p.u*scale+6;}).attr('y', function(p){return -p.v*scale+3;})
-.attr('font-size',8).attr('fill','#7C8AA8').text(function(p){return Math.round(p.h_km*10)/10+'km';});
+.attr('x', function(p){return p.u*scale+5;}).attr('y', function(p){return -p.v*scale+3;})
+.attr('font-size',7).attr('fill','#7C8AA8').text(function(p){return Math.round(p.h_km*10)/10+'km';});
 
 if (d.storm_motion){
 var uvS = hodoWindUV(d.storm_motion.dir, d.storm_motion.speed_kt);
@@ -700,6 +771,32 @@ g.append('circle')
 
 g.append('text').attr('x', innerW).attr('y', -2).attr('text-anchor', 'end')
 .attr('font-size', 9.5).attr('fill', '#7C8AA8').text('°C (superficie, sin corregir por el skew)');
+
+if (d.wind_profile && d.wind_profile.length){
+var barbColX = innerW + 45;
+g.append('line').attr('x1', barbColX).attr('x2', barbColX).attr('y1', 0).attr('y2', innerH)
+.attr('stroke', '#24344F').attr('stroke-width', 1);
+g.append('text').attr('x', barbColX).attr('y', -4).attr('text-anchor', 'middle')
+.attr('font-size', 8.5).attr('fill', '#7C8AA8').text('kt');
+d.wind_profile.forEach(function(w){
+if (w.dir == null || w.speed_kt == null) return;
+var y = skewtY(w.p, innerH);
+if (y < 0 || y > innerH) return;
+var bg = g.append('g').attr('transform', 'translate('+barbColX+','+y+') rotate('+w.dir+')');
+windBarbElements(w.speed_kt, 0.62).forEach(function(el){
+if (el.tag === 'line'){
+bg.append('line').attr('x1', el.x1).attr('y1', el.y1).attr('x2', el.x2).attr('y2', el.y2)
+.attr('stroke', '#F2C14E').attr('stroke-width', 1.3).attr('stroke-linecap', 'round');
+} else {
+bg.append('polygon').attr('points', el.pts.map(function(p){return p.join(',');}).join(' '))
+.attr('fill', '#F2C14E').attr('stroke', '#F2C14E');
+}
+});
+g.append('circle').attr('cx', barbColX).attr('cy', y).attr('r', 1.6).attr('fill', '#7C8AA8');
+g.append('text').attr('x', barbColX+15).attr('y', y+3).attr('font-size', 7).attr('fill', '#7C8AA8')
+.text((Math.round(w.h_m/100)/10) + 'km');
+});
+}
 }
 
 function render(){
