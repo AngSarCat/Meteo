@@ -117,8 +117,14 @@ font-family:'IBM Plex Mono',monospace;line-height:1.6;}
 </div>
 <div class="card" id="stabCard" style="display:none;margin-top:16px;">
 <h2>Índices de estabilidad y severidad (RAOB) · <span id="stabStationName"></span></h2>
+<p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:0 0 8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#4CAF50;margin-right:4px;"></span>sin riesgo</span>
+<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F2C14E;margin-right:4px;"></span>riesgo bajo</span>
+<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F2914E;margin-right:4px;"></span>riesgo alto</span>
+<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#E24E4E;margin-right:4px;"></span>riesgo extremo</span>
+</p>
 <div id="stabGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;"></div>
-<p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:8px 0 0;">Fórmulas de RAOB70 (manual de usuario, sección 15) sobre el mismo sondeo TTAA/TTBB. K/TT/CT/VT/LI/SI/SWEAT/CCL vía MetPy; Boyden/VGP/Haines/EHI/BRN/STP calculados a partir del perfil. SCP y STP usan CAPE/CIN de superficie como aproximación de las variantes "mixed-layer"/"effective" (el sondeo no tiene resolución suficiente para calcularlas de forma estricta).</p>
+<p style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);margin:8px 0 0;">Fórmulas de RAOB70 (manual de usuario, sección 15) sobre el mismo sondeo TTAA/TTBB. K/TT/CT/VT/LI/SI/SWEAT/CCL vía MetPy; Boyden/VGP/Haines/EHI/BRN/STP calculados a partir del perfil. SCP y STP usan CAPE/CIN de superficie como aproximación de las variantes "mixed-layer"/"effective" (el sondeo no tiene resolución suficiente para calcularlas de forma estricta). El semáforo de color junto a cada valor es un umbral orientativo por índice (referencias estándar de pronóstico convectivo), no una escala oficial única; BRN no lleva semáforo por no ser monótono (un valor "malo" puede ser demasiado alto o demasiado bajo según CAPE y cizalla).</p>
 </div>
 <div class="card" id="hodoCard" style="display:none;margin-top:16px;">
 <h2>Hodógrafo · <span id="hodoStationName"></span></h2>
@@ -455,6 +461,35 @@ if (v === 5) return 'moderado';
 return 'alto';
 }
 
+function semaphoreLevel(key, v){
+if (v === null || v === undefined || isNaN(v)) return null;
+switch(key){
+case 'K': return v<20?0: v<30?1: v<35?2: 3;
+case 'TT': return v<44?0: v<50?1: v<56?2: 3;
+case 'CT': return v<18?0: v<20?1: v<22?2: 3;
+case 'VT': return v<26?0: v<28?1: v<30?2: 3;
+case 'LI': return v>0?0: v>-3?1: v>-6?2: 3;
+case 'SI': return v>=1?0: v>-3?1: v>-6?2: 3;
+case 'SWEAT': return v<250?0: v<300?1: v<400?2: 3;
+case 'Boyden': return v<90?0: v<96?1: v<105?2: 3;
+case 'VGP': return v<0.10?0: v<0.20?1: v<0.27?2: 3;
+case 'Haines': return v<=3?0: v===4?1: v===5?2: 3;
+case 'SRH1': return v<100?0: v<150?1: v<300?2: 3;
+case 'SRH3': return v<150?0: v<300?1: v<450?2: 3;
+case 'EHI': return v<1?0: v<2?1: v<3?2: 3;
+case 'SCP': return v<0.5?0: v<1?1: v<4?2: 3;
+case 'STP': return v<0.5?0: v<1?1: v<3?2: 3;
+}
+return null;
+}
+var STAB_LEVEL_COLORS = ['#4CAF50','#F2C14E','#F2914E','#E24E4E'];
+var STAB_LEVEL_LABELS = ['sin riesgo','riesgo bajo','riesgo alto','riesgo extremo'];
+function semaphoreDot(key, v){
+var lvl = semaphoreLevel(key, v);
+if (lvl === null) return '';
+return '<span title="'+STAB_LEVEL_LABELS[lvl]+'" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+STAB_LEVEL_COLORS[lvl]+';margin-right:6px;vertical-align:middle;"></span>';
+}
+
 function renderStabTable(d){
 var card = d3.select('#stabCard');
 if (d.K_index == null && d.TT_index == null && d.SWEAT == null){
@@ -464,30 +499,30 @@ return;
 card.style('display', null);
 d3.select('#stabStationName').text(d.name);
 var items = [
-['K Index', fmtVal(d.K_index,1)+' °C'],
-['Total Totals', fmtVal(d.TT_index,1)+' °C'],
-['Cross Totals', fmtVal(d.CT_index,1)+' °C'],
-['Vertical Totals', fmtVal(d.VT_index,1)+' °C'],
-['Lifted Index', fmtVal(d.LI,1)+' °C'],
-['Showalter Index', fmtVal(d.SI,1)+' °C'],
-['SWEAT', fmtVal(d.SWEAT,0)],
-['Boyden', fmtVal(d.Boyden,1)],
-['VGP', fmtVal(d.VGP,3)+' s⁻¹'],
+['K Index', semaphoreDot('K', d.K_index) + fmtVal(d.K_index,1)+' °C'],
+['Total Totals', semaphoreDot('TT', d.TT_index) + fmtVal(d.TT_index,1)+' °C'],
+['Cross Totals', semaphoreDot('CT', d.CT_index) + fmtVal(d.CT_index,1)+' °C'],
+['Vertical Totals', semaphoreDot('VT', d.VT_index) + fmtVal(d.VT_index,1)+' °C'],
+['Lifted Index', semaphoreDot('LI', d.LI) + fmtVal(d.LI,1)+' °C'],
+['Showalter Index', semaphoreDot('SI', d.SI) + fmtVal(d.SI,1)+' °C'],
+['SWEAT', semaphoreDot('SWEAT', d.SWEAT) + fmtVal(d.SWEAT,0)],
+['Boyden', semaphoreDot('Boyden', d.Boyden) + fmtVal(d.Boyden,1)],
+['VGP', semaphoreDot('VGP', d.VGP) + fmtVal(d.VGP,3)+' s⁻¹'],
 ['Tc / CCL', (d.Tc!=null?fmtVal(d.Tc,1)+'°C':'—')+' / '+(d.CCL_hPa!=null?fmtVal(d.CCL_hPa,0)+'hPa':'—')],
-['Haines Index', d.Haines!=null ? fmtVal(d.Haines,0)+' ('+hainesLabel(d.Haines)+')' : '—'],
+['Haines Index', semaphoreDot('Haines', d.Haines) + (d.Haines!=null ? fmtVal(d.Haines,0)+' ('+hainesLabel(d.Haines)+')' : '—')],
 ['Storm motion (Bunkers)', d.storm_motion ? fmtVal(d.storm_motion.dir,0)+'°/'+fmtVal(d.storm_motion.speed_kt,0)+'kt' : '—'],
-['SRH 0-1km', fmtVal(d.SRH_0_1km,0)+' m²/s²'],
-['SRH 0-3km', fmtVal(d.SRH_0_3km,0)+' m²/s²'],
-['EHI', fmtVal(d.EHI,2)],
+['SRH 0-1km', semaphoreDot('SRH1', d.SRH_0_1km) + fmtVal(d.SRH_0_1km,0)+' m²/s²'],
+['SRH 0-3km', semaphoreDot('SRH3', d.SRH_0_3km) + fmtVal(d.SRH_0_3km,0)+' m²/s²'],
+['EHI', semaphoreDot('EHI', d.EHI) + fmtVal(d.EHI,2)],
 ['BRN', fmtVal(d.BRN,0)],
-['SCP', fmtVal(d.SCP,2)],
-['STP', fmtVal(d.STP,2)],
+['SCP', semaphoreDot('SCP', d.SCP) + fmtVal(d.SCP,2)],
+['STP', semaphoreDot('STP', d.STP) + fmtVal(d.STP,2)],
 ];
 var cells = d3.select('#stabGrid').selectAll('div.stab-cell').data(items).join('div').attr('class','stab-cell')
 .style('background','#101B30').style('border','1px solid #24344F').style('border-radius','4px').style('padding','5px 8px');
 cells.html('');
 cells.append('div').style('color','#7C8AA8').style('font-size','9.5px').text(function(it){return it[0];});
-cells.append('div').style('color','#EDEDED').style('font-size','12.5px').style('margin-top','1px').text(function(it){return it[1];});
+cells.append('div').style('color','#EDEDED').style('font-size','12.5px').style('margin-top','1px').html(function(it){return it[1];});
 }
 
 function hodoWindUV(dirDeg, speedKt){
