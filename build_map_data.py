@@ -31,6 +31,7 @@ from synop_decoder import split_stations as split_synop, decode_station_latest
 from mfc import compute_mfc_for_all
 from sst_data import marine_fuel_for_station
 from severity_index import severity_score
+from torrential_index import torrential_score
 
 TEMP_STATIONS = {
     '08190': ('Barcelona (08190)', 41.297, 2.083),
@@ -117,6 +118,7 @@ def main():
     ap.add_argument('--out', default='map_data.json')
     ap.add_argument('--fire-out', default='fire_synop_update.json')
     ap.add_argument('--severity-out', default='severity_summary.json')
+    ap.add_argument('--torrential-out', default='torrential_summary.json')
     args = ap.parse_args()
 
     raw_ttaa = open(args.ttaa_file, encoding='utf-8').read()
@@ -150,6 +152,7 @@ def main():
     # -- decode soundings, compute KPIs + severity per station --
     temp_stations_out = []
     severity_rows = []
+    torrential_rows = []
     temp_times = {}
     for sid, (name, lat, lon) in TEMP_STATIONS.items():
         block = ttaa_blocks.get(sid)
@@ -197,11 +200,24 @@ def main():
         kpis['mfc_estacion'] = synop_decoded[nearest_id]['name'] if nearest_id else None
         kpis['mfc_dist_km'] = round(nearest_dist) if nearest_dist is not None else None
 
+        # Indice de riesgo de lluvia torrencial por convergencia (distinto
+        # de severity_score: ve alto en columnas saturadas de lluvia
+        # persistente -- p.ej. DANA -- aunque el CAPE sea bajo).
+        tor_score, tor_cat, tor_detail = torrential_score(
+            kpis.get('PWAT_mm'), mfc_nearest,
+            kpis.get('profile_p'), kpis.get('profile_t'), kpis.get('profile_td'),
+            kpis.get('wind850_dir'), kpis.get('wind850_ms'),
+        )
+        kpis['torrential_score'] = tor_score
+        kpis['torrential_categoria'] = tor_cat
+
         temp_stations_out.append(kpis)
         severity_rows.append({'name': name, 'score': score, 'categoria': cat,
                                'sbcape': kpis['SBCAPE'], 'sbcin': kpis['SBCIN'],
                                'shear_0_6km': kpis['shear_0_6km'], 'combustible_marino': combustible,
                                'mfc_cercano': mfc_nearest})
+        torrential_rows.append({'name': name, 'score': tor_score, 'categoria': tor_cat,
+                                 **tor_detail})
 
     meta = {
         'temp_times_by_station': temp_times,
@@ -231,11 +247,18 @@ def main():
     with open(args.severity_out, 'w', encoding='utf-8') as f:
         json.dump(severity_rows, f, ensure_ascii=False, indent=1)
 
+    torrential_rows.sort(key=lambda r: -r['score'])
+    with open(args.torrential_out, 'w', encoding='utf-8') as f:
+        json.dump(torrential_rows, f, ensure_ascii=False, indent=1)
+
     print(f'Wrote {args.out}: {len(temp_stations_out)} temp stations, {len(mfc_stations_out)} mfc stations')
     print(f'Wrote {args.fire_out}: {len(fire_rows)} fire/SYNOP rows')
     print(f'Wrote {args.severity_out}: severity ranking')
     for r in severity_rows:
         print(f"  {r['name']}: {r['score']} ({r['categoria']}) CAPE={r['sbcape']} CIN={r['sbcin']} shear6={r['shear_0_6km']}")
+    print(f'Wrote {args.torrential_out}: torrential/convergence ranking')
+    for r in torrential_rows:
+        print(f"  {r['name']}: {r['score']} ({r['categoria']}) PWAT={r['pwat_mm']} MFC={r['mfc']} sat_depth_hpa={r['sat_depth_hpa']}")
 
 
 if __name__ == '__main__':
