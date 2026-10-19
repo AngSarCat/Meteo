@@ -147,6 +147,8 @@ nuevo.
    y el procedimiento de selección quedan documentados en las notas del
    proyecto (`claude/meteo-dashboard-notes.md`).
 
+**Dos usos distintos de AVAMET en el panel (desde 19/10/2026 segunda pasada):** (a) un subconjunto curado de 15 estaciones, elegido a mano para rellenar el hueco de cobertura del interior sin duplicar METAR/XEMA/Meteoclimatic, que vive en `fireStations` (ver más abajo) y se actualiza a mano estación por estación; (b) el array completo de estaciones con lectura válida de `prec` (típicamente ~850 de las 908, tras descartar las que no traen lat/lon o `prec` numérico), usado tal cual para el nuevo mapa de densidad de lluvia (`rainStations`, ver sección dedicada más abajo) — ahí no se cura ni se filtra por municipio, se vuelca la red entera dentro de la bounding box de interés. **Importante sobre el campo `prec`**: es la precipitación acumulada desde medianoche hora local, NO una ventana móvil de 24h — en el texto del panel esto se etiqueta explícitamente para no sugerir una precisión que la fuente no da; si en el futuro se necesita un acumulado de 24h real, habría que sumar `prec` de hoy con una fracción de `prec` de ayer (no se guarda historial de estaciones individuales entre pasadas, así que de momento no es viable sin almacenar snapshots).
+
 5. **Se descartó Netatmo**: su endpoint público (`getpublicdata`) exige
    registrar una app OAuth2 y renovar tokens — no es un fetch anónimo
    como las anteriores. El usuario decidió el 25/07/2026 dejarlo
@@ -195,6 +197,37 @@ el resto con la fecha de un día anterior, por el mismo motivo que ya
 documentaba el incidente de los dos bloques originales. El recuento de
 verificación de integridad pre-publicación pasa de "fireStations=35" a
 "fireStations=50" a partir de esta fecha.
+
+## Mapa de densidad de lluvia en 24h (añadido 19/10/2026, segunda pasada del día)
+Tarjeta nueva dentro de ÍNDICE DE SEVERIDAD COMPUESTO, colocada justo debajo de "Índice de riesgo de
+lluvia torrencial" (mismo `<!-- ... -->` de sección, sin comentario propio — igual que esa tarjeta
+y la de severidad comparten el bloque "ÍNDICE DE SEVERIDAD COMPUESTO"). `<div id="rainDensityMapWrap">`
+→ `<div id="rainDensityMap">`, dibujado por `drawRainMap()` (misma receta D3 v7.8.5 + topojson v3.0.2
++ Cressman de dos pasadas que `drawFireIndexMap`/`drawTorrentialMap`/`drawSeverityMap`, reutilizando
+`buildFireCressmanGrid` y `loadFireCountries` sin modificarlas). Fuente de datos: `rainStations`, un
+array JS embebido de ~850 objetos `{n, lat, lon, p}` (n=nombre/municipio, p=mm acumulados desde
+medianoche local) — el volcado directo del campo `prec` de AVAMET para toda estación con lectura
+válida en la bounding box de interés (Comunitat Valenciana y zonas limítrofes), sin curar a mano
+como las 15 de `fireStations`. Por eso usa un radio de Cressman mucho más corto (R1=30km/R2=10km,
+máscara de cobertura a 22km) que los mapas de escala peninsular de este panel (R1=300-320km/R2=130-140km,
+máscara 180-250km) — la densidad real de la red lo permite y lo exige para no sobre-suavizar el
+episodio. Escala de color por `rainColor(v)`: <10mm fondo, 10-50 azul, 50-100 azul claro, 100-200
+naranja, ≥200 rojo (`#C1272D`, mismo tono de "extremo" que el resto del panel). **Extracción de
+`rainStations`**: mismo método de navegador que el resto de AVAMET (`var data = [...]` embebido en
+`mxo-mxo.php`), filtrando por bounding box aproximada de la Comunitat Valenciana (lat 37,7-40,9, lon
+-1,7 a 0,8) y por `prec` parseable; para evitar el bloqueo de `javascript_tool` con ~850 objetos, se
+redujo cada estación a 4 campos mínimos (`n/lat/lon/p`, nombres de municipio truncados a su forma
+HTML-entidad tal cual vienen en el campo `muni` de AVAMET — hay que decodificarlas con
+`html.unescape` al generar el array final, si no quedan tooltips con `&agrave;`/`&prime;`/etc.
+literales) antes de volcar a `<pre>` y leer en dos tandas de `get_page_text` (~24.000 caracteres cada
+una, igual que el límite ya documentado arriba). **Primer uso, 19/10/2026**: aisló con claridad el
+núcleo de la DANA "Adam" en La Safor/norte de la Marina Alta (Pego 490,5mm, Oliva 450,3mm, la Vall
+d'Ebo 397,2mm, Vilallonga 396,7mm, Miramar 345,0mm; 32 estaciones ≥200mm, 61 ≥100mm) — hallazgo que
+motivó también una entrada nueva en la síntesis a corto plazo y en el texto de riesgo de incendio,
+con corroboración por prensa (Infobae, El Economista, Mundiario) de 4 fallecidos durante el temporal
+(3 en la Comunitat Valenciana) y aviso rojo de AEMET vigente en la zona desde el domingo 18. **No se
+tocó** `mapa_kpis_prototipo.html` ni `kpimapDataJson`/`mapDataJson` en esta pasada — es una tarjeta y
+un array completamente nuevos, sin relación con el pipeline de sondeos ni con el mapa de KPIs.
 
 ## Pipeline de sondeos TTAA/TTBB + SYNOP — índice de severidad y mapa de KPIs (añadido 26/07/2026 noche)
 Scripts en la raíz del repo (`temp_decoder.py`, `synop_decoder.py`, `compute_kpis.py`,
