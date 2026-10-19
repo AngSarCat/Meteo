@@ -353,6 +353,12 @@ Revisado por Claude directamente en estofex.org hoy <b>lunes 19 de octubre de 20
 </div>
 <div id="rainDensityMapWrap" style="border:1px solid var(--border);border-radius:6px;background:#0C1526;padding:10px 10px 6px;margin-bottom:12px;">
 <div id="rainDensityMap" style="width:100%;"></div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);flex-wrap:wrap;">
+<label for="rainDensitySlider" style="white-space:nowrap;color:var(--text);">Densidad de estaciones mostradas</label>
+<input type="range" id="rainDensitySlider" min="0" max="7" step="1" value="3" style="flex:1;min-width:120px;max-width:240px;accent-color:var(--cyan);">
+<span id="rainDensityLabel" style="white-space:nowrap;"></span>
+<span style="white-space:nowrap;color:var(--text-dim);">(filtro visual: no cambia el cálculo de densidad de lluvia, solo cuántos puntos se dibujan)</span>
+</div>
 <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;padding-top:8px;border-top:1px dashed var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-dim);">
 <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#16233D;margin-right:4px;border:1px solid #24344F;"></span>&lt;10mm</span>
 <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2E6DA4;margin-right:4px;"></span>10-50mm</span>
@@ -360,7 +366,7 @@ Revisado por Claude directamente en estofex.org hoy <b>lunes 19 de octubre de 20
 <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F2A33E;margin-right:4px;"></span>100-200mm</span>
 <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#C1272D;margin-right:4px;"></span>&gt;=200mm</span>
 <span><span style="display:inline-block;width:9px;height:9px;background:repeating-linear-gradient(45deg,#0C1526,#0C1526 2px,#24344F 2px,#24344F 4px);margin-right:4px;"></span>sin estación a &lt;22km (extrapolación)</span>
-<span style="margin-left:auto;">rueda del ratón = zoom · arrastrar = desplazar · doble clic = restablecer · pasa el cursor sobre una estación para ver su dato</span>
+<span style="margin-left:auto;">rueda del ratón = zoom · arrastrar = desplazar · doble clic = restablecer · cursor sobre una estación = su dato</span>
 </div>
 </div>
 <div class="body">
@@ -1982,6 +1988,27 @@ var REGION_BBOX = {type: 'FeatureCollection', features: [
 ].map(function(c){ return {type: 'Feature', geometry: {type: 'Point', coordinates: c}}; })};
 var projection = d3.geoMercator();
 var pathGen = d3.geoPath(projection);
+
+// Densidad visual de estaciones (puramente estética): pasos de separación mínima en px
+// entre círculos dibujados, priorizando siempre las estaciones con más precipitación.
+// El cálculo de color/contornos (cg, contourGen, bands) usa SIEMPRE las 850 estaciones,
+// este filtro solo decide cuántos puntos individuales se dibujan encima.
+var DENSITY_STEPS = [0, 3, 6, 10, 16, 24, 34, 46];
+function thinStations(allPts, allXY, minSepPx){
+if (!minSepPx) return allPts.map(function(d,i){ return {d:d, xy:allXY[i]}; });
+var order = allPts.map(function(d,i){ return i; }).sort(function(a,b){ return allPts[b].p - allPts[a].p; });
+var kept = [], keptXY = [];
+for (var k=0; k<order.length; k++){
+var i = order[k], p = allXY[i], ok = true;
+for (var j=0; j<keptXY.length; j++){
+var dx = p[0]-keptXY[j][0], dy = p[1]-keptXY[j][1];
+if (dx*dx+dy*dy < minSepPx*minSepPx){ ok = false; break; }
+}
+if (ok){ kept.push(allPts[i]); keptXY.push(p); }
+}
+return kept.map(function(d,i){ return {d:d, xy:keptXY[i]}; });
+}
+
 loadFireCountries().then(function(shown){
 projection.fitExtent([[16,16],[W-16,H-16]], REGION_BBOX);
 landG.selectAll('path').data(shown).join('path').attr('d', pathGen)
@@ -2013,17 +2040,17 @@ maskG.selectAll('path').data(maskContour).join('path')
 .attr('class', 'fire-coverage-mask')
 .attr('transform', 'scale(' + gdx + ',' + gdy + ')')
 .attr('d', d3.geoPath());
-stationsG.selectAll('circle').data(pts).join('circle')
-.attr('cx', function(d,i){ return xy[i][0]; })
-.attr('cy', function(d,i){ return xy[i][1]; })
-.attr('r', function(d){ return 1.6 + Math.min(d.p,300)/60; })
-.attr('fill', function(d){ return rainColor(d.p); })
+
+function renderStations(subset){
+var sel = stationsG.selectAll('circle').data(subset, function(d){ return d.d.n; });
+sel.exit().remove();
+sel.enter().append('circle')
 .attr('stroke', '#0A1120').attr('stroke-width', 0.5)
 .attr('vector-effect', 'non-scaling-stroke')
 .style('cursor', 'pointer')
 .on('mouseenter', function(event, d){
 d3.select(this).attr('stroke', 'var(--cyan)').attr('stroke-width', 1.5).raise();
-tooltip.html('<b>' + d.n + '</b><br>' + d.p.toFixed(1).replace('.0','') + ' mm acumulados desde medianoche local<br><span style="color:var(--text-dim);">AVAMET, lectura más reciente</span>')
+tooltip.html('<b>' + d.d.n + '</b><br>' + d.d.p.toFixed(1).replace('.0','') + ' mm acumulados desde medianoche local<br><span style="color:var(--text-dim);">AVAMET, lectura más reciente</span>')
 .style('opacity', 1);
 })
 .on('mousemove', function(event){
@@ -2033,7 +2060,31 @@ tooltip.style('left', (event.clientX + 14) + 'px').style('top', (event.clientY +
 d3.select(this).attr('stroke', '#0A1120').attr('stroke-width', 0.5);
 tooltip.style('opacity', 0);
 })
-.append('title').text(function(d){ return d.n + ': ' + d.p.toFixed(1).replace('.0','') + ' mm acumulados desde medianoche local (AVAMET)'; });
+.append('title');
+var merged = stationsG.selectAll('circle');
+merged
+.attr('cx', function(d){ return d.xy[0]; })
+.attr('cy', function(d){ return d.xy[1]; })
+.attr('r', function(d){ return 1.6 + Math.min(d.d.p,300)/60; })
+.attr('fill', function(d){ return rainColor(d.d.p); });
+merged.select('title').text(function(d){ return d.d.n + ': ' + d.d.p.toFixed(1).replace('.0','') + ' mm acumulados desde medianoche local (AVAMET)'; });
+}
+
+var slider = document.getElementById('rainDensitySlider');
+var label = document.getElementById('rainDensityLabel');
+function applyDensity(stepIdx){
+var minSepPx = DENSITY_STEPS[stepIdx] || 0;
+var subset = thinStations(pts, xy, minSepPx);
+renderStations(subset);
+if (label) label.textContent = (minSepPx ? subset.length + ' de ' + pts.length + ' estaciones' : 'todas (' + pts.length + ')');
+}
+if (slider){
+applyDensity(+slider.value);
+slider.addEventListener('input', function(){ applyDensity(+slider.value); });
+} else {
+applyDensity(3);
+}
+
 var zoom = d3.zoom()
 .scaleExtent([1, 8])
 .translateExtent([[-W*0.25, -H*0.25], [W*1.25, H*1.25]])
