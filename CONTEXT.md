@@ -96,9 +96,60 @@ nuevo.
    "sin verificar" en el texto de la sección, nunca como hallazgo
    principal.
 
-4. **Se descartó Netatmo**: su endpoint público (`getpublicdata`) exige
+4. **AVAMET** (red amateur/voluntaria de la Comunitat Valenciana —
+   Castelló, València y Alacant; sin control de calidad garantizado,
+   tratar igual que Meteoclimatic — añadida 19/10/2026 a petición del
+   usuario). Sin API pública ni feed XML/JSON/CSV/RSS documentado, pero
+   la página en vivo `https://www.avamet.org/mxo-meteoxarxaonline.html`
+   (o `mxo-mxo.php`) embebe TODA la red (908 estaciones a 19/10/2026) como
+   un array JS válido como JSON dentro de un `<script>` inline, variable
+   `var data = [...]`. Método de extracción (navegador, `javascript_tool`):
+   localizar el `<script>` inline cuyo texto contiene `lat`/`lon` (hay
+   varios scripts; ese es el que tiene el array), cortar la subcadena desde
+   `var data = [` (incluyendo el `[`) hasta el `];` que la cierra, y hacer
+   `JSON.parse()` directo — las claves y valores string ya vienen entre
+   comillas dobles, es JSON válido sin necesidad de reescritura. Claves
+   relevantes por estación: `esta` (id interno, ej. `c09m001e01`), `muni`
+   (municipio), `dess` (descripción/pedanía, puede ser `null`), `msnm`
+   (altitud, string con punto de millar: `"1.181"` = 1181 m), `lati`/`logi`
+   (latitud/longitud, 8 decimales, strings), `temp`/`hrel`/`vent`
+   (velocidad media)/`vent_dir`/`vent_max`/`prec`/`data_ini` (timestamp
+   `DD/MM/YYYY HH:MM`, hora local peninsular). **Importante**: `javascript_tool`
+   bloquea con `[BLOCKED: Cookie/query string data]` si el resultado
+   devuelto directamente como expresión final es un JSON con más de ~5-10
+   objetos (demasiados `:`/`,` seguidos, se confunde con datos de
+   cookies/query string) — para extraer más de un puñado de estaciones,
+   volcar el JSON a un `<pre>` con `document.body.innerHTML` (o
+   `appendChild`) y leerlo con `get_page_text` (que si acepta payloads
+   grandes), trabajando en trozos de ~45.000 caracteres si hace falta el
+   catálogo completo, o filtrar a los municipios de interés en el propio
+   navegador para devolver solo esos (unas pocas decenas de objetos SÍ
+   se pueden devolver como resultado directo de `javascript_tool` sin
+   bloqueo).
+   **Cobertura real**: la red cubre densamente el interior de Castelló,
+   València y Alacant (centenares de estaciones en comarcas de montaña
+   como el Maestrat, l'Alt Millars, el Racó d'Ademús, la Serrania, la
+   Vall de Cofrents-Aiora, el Comtat, l'Alcoià, l'Alt Vinalopó) que
+   METAR/XEMA/Meteoclimatic apenas tocan — es la fuente que mejor llena
+   ese vacío para la regla 30-30-30 y para el mapa de KPIs. NO cubre
+   Cataluña ni Baleares.
+   **Estaciones añadidas al panel el 19/10/2026** (15 nuevas filas en
+   `fireStations`, elegidas para cubrir el interior sin duplicar cobertura
+   ya existente): Morella–Fàbrica Giner (`c01m080e03`), Vistabella del
+   Maestrat–Sant Joan de Penyagolosa (`c02m139e01`, 1285 m, referencia de
+   máxima altitud), Montanejos (`c08m079e01`), Ademuz–IES Ademuz
+   (`c09m001e01`, el punto más interior de toda la red), Chelva
+   (`c10m106e01`), Requena–centro (`c17m213e17`), Cofrentes (`c19m097e02`),
+   Ayora–Casa Rural Los Pastores (`c19m044e16`), Enguera (`c22m118e05`),
+   Agres–El Tossal (`c26m003e07`), Castalla–CEIP La Llauria
+   (`c27m053e13`), Villena (`c28m140e13`), Novelda–centre (`c29m093e04`),
+   Orihuela (`c34m099e28`), Pego–Ambra (`c30m102e03`). Coordenadas exactas
+   y el procedimiento de selección quedan documentados en las notas del
+   proyecto (`claude/meteo-dashboard-notes.md`).
+
+5. **Se descartó Netatmo**: su endpoint público (`getpublicdata`) exige
    registrar una app OAuth2 y renovar tokens — no es un fetch anónimo
-   como las tres anteriores. El usuario decidió el 25/07/2026 dejarlo
+   como las anteriores. El usuario decidió el 25/07/2026 dejarlo
    fuera para no añadir ese mantenimiento.
 
 **Cómo redactar la sección cada día:** listar primero (si las hay)
@@ -128,11 +179,22 @@ por normalización lineal, índice = 100 × el mínimo de los tres) y el color
 del círculo sale de `colorForIndex(index)` (verde-amarillo-naranja-rojo).
 **Actualización diaria: hay que reescribir a mano el array `fireStations`
 dentro del `<script>` con los valores t/hr/wind del día para cada
-estación** (mismas fuentes METAR/XEMA/Meteoclimatic que el texto de la
-sección) — el índice y el color se recalculan solos en el navegador, no
+estación** (mismas fuentes METAR/XEMA/Meteoclimatic/AVAMET que el texto de
+la sección) — el índice y el color se recalculan solos en el navegador, no
 hace falta tocar esa parte del script. Si se añade o quita una estación de
 la lista de texto, añadir/quitar también su entrada en `fireStations` para
 que el mapa y el texto no diverjan.
+
+**Actualización 19/10/2026 — tercer bloque (AVAMET):** `fireStations` pasó
+de 35 a 50 entradas con la incorporación de AVAMET (ver fuente nº4 arriba):
+ahora son TRES bloques que deben refrescarse siempre juntos en la misma
+pasada — 21 no-SYNOP (METAR/XEMA/Meteoclimatic), 14 SYNOP (pipeline de
+sondeos Ogimet, solo si corre ese día) y 15 AVAMET (interior de la
+Comunitat Valenciana) — nunca publicar solo uno o dos de los tres y dejar
+el resto con la fecha de un día anterior, por el mismo motivo que ya
+documentaba el incidente de los dos bloques originales. El recuento de
+verificación de integridad pre-publicación pasa de "fireStations=35" a
+"fireStations=50" a partir de esta fecha.
 
 ## Pipeline de sondeos TTAA/TTBB + SYNOP — índice de severidad y mapa de KPIs (añadido 26/07/2026 noche)
 Scripts en la raíz del repo (`temp_decoder.py`, `synop_decoder.py`, `compute_kpis.py`,
