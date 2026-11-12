@@ -1,0 +1,263 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Visor de símbolos S.A.</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: columna única tipo hoja de laboratorio; controles arriba, resumen, raster y gráficas debajo. */
+:root{--bg:#f3f5f6;--panel:#ffffff;--fg:#14212a;--mut:#5b6b76;--line:#d5dde2;--acc:#0b7a75;--acc2:#b4531a;--ok:#2d7d46;--grid:#e6ecef;
+--sans:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f171c;--panel:#16222a;--fg:#e3ebef;--mut:#93a4af;--line:#2a3a44;--acc:#3fc1b8;--acc2:#e08a50;--ok:#6cc487;--grid:#1f2e37;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f171c;--panel:#16222a;--fg:#e3ebef;--mut:#93a4af;--line:#2a3a44;--acc:#3fc1b8;--acc2:#e08a50;--ok:#6cc487;--grid:#1f2e37;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;font-weight:600;margin:0;text-wrap:balance}
+h2{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+p{margin:0}.mut{color:var(--mut)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;min-width:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut)}
+input,select,textarea,button{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+input[type=number]{width:84px;font-family:var(--mono)}
+input[type=range]{padding:0;width:min(420px,100%)}
+button{cursor:pointer;background:var(--acc);color:#fff;border-color:var(--acc);font-weight:500}
+[data-theme="dark"] button,:root:not([data-theme="light"]) button{color:#06201e}
+button.sec{background:var(--bg);color:var(--fg);border-color:var(--line)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+textarea{width:100%;height:90px;font-family:var(--mono);font-size:12px;resize:vertical}
+.drop{border:1px dashed var(--line);border-radius:6px;padding:12px;text-align:center;color:var(--mut)}
+.drop.on{border-color:var(--acc);color:var(--fg)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.card{border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-width:0}
+.card b{display:block;font-family:var(--mono);font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.card span{display:block;font-size:12px;color:var(--mut)}
+.scroll{overflow-x:auto}
+canvas{display:block;max-width:100%}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:12px;margin-top:8px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:3px 8px;border-bottom:1px solid var(--grid)}
+th{color:var(--mut);font-weight:500}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.note{font-size:12px;color:var(--mut);margin-top:8px}
+.tag{font-size:11px;border:1px solid var(--acc2);color:var(--acc2);border-radius:3px;padding:1px 6px;margin-left:8px;vertical-align:2px}
+</style>
+<div class="wrap">
+<div>
+<h1>Visor de símbolos S.A.</h1>
+<p class="mut">Carga el texto de la ventana verde de Phase Plane (Output Dem as N) de cualquier señal. El análisis se hace en tu navegador y no se envía a ningún sitio.</p>
+</div>
+
+<div class="panel">
+<h2>Datos</h2>
+<div id="drop" class="drop">Arrastra aquí el fichero .txt, o <label style="display:inline;color:var(--acc);cursor:pointer;text-decoration:underline">elige uno<input id="file" type="file" accept=".txt,text/plain" style="display:none"></label>, o pega el texto abajo.</div>
+<textarea id="paste" placeholder="&lt;&lt;&lt; Dem of Signals Analyzer &gt;&gt;&gt; ... Data:0040000..." aria-label="Texto del volcado"></textarea>
+<div class="row" style="margin-top:10px">
+<button id="go">Analizar texto pegado</button>
+<button id="sample" class="sec">Cargar ejemplo</button>
+<label>Volcado<select id="dsel"></select></label>
+<label>Ancho de trama (símbolos)<input id="frame" type="number" value="256" min="8" max="4096"></label>
+<label>Tramo mínimo de sincronismo<input id="minrun" type="number" value="40" min="8" max="400"></label>
+<label>Lags a comparar<input id="lags" type="text" value="31 32 256 512" style="width:140px;font-family:var(--mono)"></label>
+</div>
+<p id="src" class="note"></p>
+</div>
+
+<div class="panel"><h2>Resumen</h2><div class="cards" id="cards"></div></div>
+
+<div class="panel">
+<h2>Trama en filas <span id="rtag" class="tag" hidden>ejemplo</span></h2>
+<div class="row" style="margin-bottom:10px">
+<label>Colorear por<select id="cmode"><option value="val">valor (fase)</option><option value="sync">par de sincronismo</option></select></label>
+<label>Fila inicial <span id="rowlab" style="font-family:var(--mono)"></span><input id="rowoff" type="range" min="0" max="0" value="0"></label>
+</div>
+<div class="scroll"><canvas id="raster" role="img" aria-label="Símbolos en filas del ancho de la trama"></canvas></div>
+<div class="legend" id="legend"></div>
+<p class="note">Cada fila es una trama. Si el ancho coincide con el periodo de la trama, el sincronismo aparece como una columna vertical de color uniforme. Si el ancho no coincide, la columna se inclina. Las columnas de color constante fuera del preámbulo son posiciones cuyo símbolo se repite de trama en trama. En SIGNAL2 coinciden con las sondas de canal (S), medido con la repetición por posición.</p>
+</div>
+
+<div class="grid2">
+<div class="panel"><h2>Histograma de símbolos</h2><div class="scroll"><canvas id="hist" role="img" aria-label="Frecuencia de cada valor"></canvas></div><p class="note" id="histnote"></p></div>
+<div class="panel"><h2>Coincidencia con el símbolo de L posiciones antes</h2><div class="scroll"><canvas id="lagc" role="img" aria-label="Coincidencia por lag"></canvas></div><p class="note" id="lagnote"></p></div>
+</div>
+
+<div class="panel"><h2>Repetición por posición en la trama</h2>
+<div class="scroll"><canvas id="prof" role="img" aria-label="Fracción de símbolos del par de sincronismo según la posición en la trama"></canvas></div>
+<p class="note">Fracción de tramas en que el símbolo de cada posición es igual al de la misma posición en la trama anterior. Con datos aleatorios el valor esperado es 1/M (línea discontinua).</p></div>
+
+<div class="panel"><h2>Tramos de sincronismo</h2>
+<div class="scroll" style="max-height:320px;overflow-y:auto"><table id="runs"></table></div>
+<p class="note" id="runnote"></p></div>
+
+<p class="note">Algoritmo equivalente al script sa_symbols.py. Los resultados dependen del PLL, del Carrier y del BR de S.A. en esa ejecución y no identifican por sí solos el código de sincronismo.</p>
+</div>
+<script>
+const SAMPLE="<<< Dem of Signals Analyzer >>>\nStart: n-Ary: 8\nDem mode: 8\nThe coding positions of angles:\n0 ==> 00,00\n1 ==> 45,00\n2 ==> 90,00\n3 ==> 135,00\n4 ==> 180,00\n5 ==> -135,00\n6 ==> -90,00\n7 ==> -45,00\nData:000400040004400040004444000040000004000404000040044044044404004400000444004000404044440440400440000044400400040404444044040044000004440044044040440000400000044040004000000000440004044000440400000040000000000044000000400000004400004000440004400000004000400000040004000440004000444400004000000400040400004004404404440400440000046622622262626666266262266222226662262226262666626626226622222666226155625456314262204336575144630121233056712676672216752037235044770720175542224457713271661273617715035650101412531761333116013530365320573156652577534202264206354423643564557656262266222226662262226262666626626226622222666226222626266662662622662222266622655562545631426220433657514563002123305601267667265675203723504477072016554222445771327166227361775503565010241353076133311601353036532057315665217753420226421635442364356455765626226622222666226222626266662662622662222266622622262626666266262266222226652265156254563141622043365741456200212330567126766726167520372450447707201655322244577131716722736173550256501024135207613331160135303653205730566525274342021632063544246435645576562622662222266622622262626666266262266222216662262216262666626626226622222666226155625456314162204336575145630121232056712676672256751037235044770720165542224457713171661273616355035650102413530761333116123530365320573056642534534202163106354423643564557656262266222216662262226262666626626226622221666226221626266662662622662222266622641162545631416220433657514563012123305601267670265675203724504477072016554222445771317167227361775103565010241353076133311612453036532057305664257643420225320635442364356455755626226622222666226222626267662662622662222266622622262626666266262266222226662264116254563141622043365751456201212337560126766726563520372460447707201755322244577131716712736163554246501024125207613331160235203653205730566425331442022532063544236435645576562622662222266622622262626766266262266222226662262226262666626626226622222666226151625466314262204336574145630121233056012676672656742037245044770720175532224457713271671273616351425650102413530762333116123530365320573056652133534202163205354423643564557656262266222226662262226262676626626226622222666226222626266662662622662222266622655162545631416220433657414562012123305671267667225674103724504477072016554222445771327167127361775542565010241352076133311601353036531057305664207713430216321535442364356455765626226622222666226222626266662662622662222266622622262626766266262266222226662265556254563141622043365741446300212330567126766026160220372350447707201755422244577131716612736163124246501014125207613331160135303653105730565525765342021632163544236435645576562622662222166622622262626666266262266222226662262226262666626626226622222666226151625456314162204336575145630121233056712676772216712037235044770720165542224457713171661273617351024650101412531761333116013530366320573056552177534302264216354423643564557656262266222226662262226262666626626226622221666226222626266662662622662222166622651516545631426220433657514563012123305601267667221675203723504477072017554222445771327167127361735106465010141253176133311601353036532057305665213753430226421635442364356455765626226622222666226222626267662662622662222266622622262626666266262266222226662261556214563142622043365751456300212330560126766722167560372350447707201755422244577132716612736177154206501014125207613331160235303663205730566525735203021632163544236435645576562622662222266622622262626766266262266222226662262226262676626626226622222666226555625456314262204336575145630021233756712676672656352037235044770720175542224457713271661273617755020651101412531761333116013530366320573156652177570302264216354423643564557656262266222226662262226262666626626226622222666226222626266662662622662222266622651526545631426220433667514453002123305671267667261275203724504477072017554222445771327166127361735502065010141253176133311601353036632057315665253753430226421635442364356455765626226622222666226222626266662662622662222266622622262626666266262266222226662261552654563142622043365751446300212330567126766722563560372350447707201655422244577132716612736173550242501014125317613331160135303663205731566525335343022641163544236435645576562622662222266622622162626666266262266222226662262226262666626626226622222665226511625056314162204336575144630021233056012676672656316437235044770720175542224457713271661263617751420650101412531761333116013530366320573156642577130302264206354423643564557656262266222226662262226262676626626226622222666226222626266662662622662222266622651162145631426220433657514462002123305601267667265675203723504477072017554222445771327167127361735542465010141253176133311601353036632057316765253317070226421635442364356455765626226622222666226222626267662662622662222266622622262626666266262266222226662261516250563142622043365751456300212337567126766726567564372350447707201755422244577132716612736173514242501014125317613331160135303663205731566521335307022642163544236435645576562622662222266622622262626666266262266222226662262226262676626626226622222666226551661456314262204336575144630021233056012676672256752037235044770720175542224457713271661273617755425650102412531761333116013530366320573156652577130702264216354423643564557656262266222226662262226262666626626226622222666226222626267662662622662222266622655562145631426220433657514463002123305671267667261675207723504477072017554222445771327166127361731157061010141253176133311601353036632057315665217753034226420635442364356455765626226622222666226222626266662662622662222266522622262626766266262266222226662261516210163142622043365751446300212330567126766726167160772350447707201655422244577132716612736177510246101014125317613331160135303663205731566525775303422642163544236435645576562622662222266622622262626666266262266222226662262226262676626626226622222666226515261456314262204336575145630121233056712676672616756477235044770720175542224457713271661273617711060650101412531761333116013530366320573156652177530346264216354423643564557656262266222226662262226262676626626226622222666226222626266662662622662222266622655562505631426220433657514463012123305671267667225675647323504477072017554222445771327166127361775542065410141253176133311601353036632057315665257353074226421635442364356455765626226622222666226222626267662662622662222266622622262626666266262266222226662265556250563142622043365751446300212337567126766722163524336350447707201755422244577132716612736163150202505014125317613331160135303663205731566521775703422642163544236435645576562622662222266622622262626666266262266222226662262226262666626626226622222666226555265052314262204336675144630021233056012676672212752433635044770720175542224557713271661273616311020254101412531761333116013530366320573156652177534742264216354423643564557656262266222226662262226262666626626226622222666226222626266662662622662222266622615126501231426220433657514463002123305671267667221635607723504477072017554222445771327166127361735502425050141253176133311601353036632057315665217353434226421635442364356455765626226622222666226222626266662662622662222266622622262626666266262266222226662261156250123542622043365751446300212337567126766726563164772750447707201755422244577132716612736173514206101414125317613331160135303663205731566525371303062642163544236435645576562622662222266622622262626666266262266222226662262226262666626626226622222666226555621412314262204336575144630021233056712676672612752077235044770720175542224457713271661273617355024610101412531761333116013530366320573156652177570746224216354423643564557656262266222226662262226262666626626226622222666226222626266662662622662222266622615162501635426220433657514463002123305671267667261675643727504477072016554222445771327166127361735142421410141253176133311601353036632057315665217753070226420635442364356455765626226622222666226222626266662662622662222266622622261626666266262266222226662265516614563102622043365751456300212330560126766726163520377010447707201755422244577132716612736177514246501054125317613331160135303663205731566421731307062642163544236435645576562622662222266622622262626666266262266222226662262226262676626626226622222666226111221456350262204336675144630021233056712676672656752077235044770720175542224457713271661273617351460610541412531761333116013530366320573156652177170342264216354423643564557656262266222226662262226262676626626226622222666226222626267662662622662222266622655166101635426220433657514563002133305671267667225631607367504477072017554222445771327166127361771542461010541253176133311601353036632057315665253757034226421635442364356455765625226622222666226222626266662662622662222266622622262626666266262266222226662265512214563106622043365751446300212330567126766726163564772350447707201755422244577132716612736173550206505414125317613331160135303663205731566525375703462602153544236435645576562522662222266622622262626766266262266222226662262226262676626626226622222666226555265056354662204336575144620021233056712676672656316473235044770720175542224457713271661273617755020654141412531761333116013530366320573156652577170742264216354423643564557656262266222226662262226262676626626226622222666226222626267662662622662222266622611526505671066220433657514463002123305671267667221674243327144477072017554222445771327166127361735542425014541253176133311601353036632057215665213753034222461635442364356455765626226622222666226222626267662662622662222266622622262626766266262266222226662261552210523546622043365751456300212330560126766726163124336354447707201755422244577132716612736173150602541411125317613431160135303663205731566521735707422246563544236435645576562622662222266622622262626766266262266222226662262226262666626626226622222666226555265012354662204336575145630021233756712676672256316077275444770720175542224457713271661273617755460250541452531761333116013530366320573156652537574342264616354423643564557656262266222226662262226262676626626226622222666226222626266662662622662222266622655562141235462220433657514563002123375671267667225235207727144477072017554222445771327166127361731242461014101253176133311601353036632057315665213717030626421635442364356455765625226622222666226222626267662662622662222266622622262626766266262266222226662261512210123142222043365751456301212330567126766722167164772350007707201755422244577132716612736173110606101050125317623331160135303663205731566522375307462246523544236435645576562522662222266622622262626766266262266222226662262226262676726626226622222666226555625416354226204336675145630021233056712676672252316437275040070720175542224457713271661273617751064654101412531761333116013530366320573156652137574342264652354423643564557656262266222226662262216262666626626226622222666226222626267662662622662222266622655122501631062627433657514463002123305671267667265275643767504577072017554222445771327166127361735106065010545253176133311601353036632057315665253757474626461335442364356455765626226622222666226222626266662662622662222266622622162626666266262266222226662261552610563506626043365751456300212330567126766722163124372354443707201755422244577132716612736173550246505414161317613331160135303663205731566525775303022642167544236435645576562622662222266622622262626666266262266222226662262226262676626626226622221666226111261456354666204336575144630021233056712676672216756033675400770720175542224457713271661273617351024654105016131761333116013530366320572156652577573705154612644423643564557656262266222226662262226262676626626226622222666226222626266662662622662222266622615162145631026260433657414563002123305671267667261675643723500477072017554222445771327166127361731557065054141213176133311601353036632057315665257753070226025635442364356455765626226622222666226222626267662662622662222266622522262626766266262266222226662265116654123546666043365751446300212330567126766726567520772350407307201655422244577132716712736177150206141414665717613331160135303663205731576521775307422642127544236435645576562622662222266622622262626766266262266222226662262226262666626626226622222666226155221452710626604336575144620021233756712676672252756073271440770720175542224457713271";
+const $=id=>document.getElementById(id);
+let D=[],cur=null,sampleMode=false;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function parse(text){
+  const out=[];const parts=text.split(/<<<\s*Dem of Signals Analyzer\s*>>>/);
+  for(const p of parts){
+    const i=p.indexOf('Data:'); if(i<0) continue;
+    const head=p.slice(0,i), data=p.slice(i+5);
+    const m=head.match(/n-Ary:\s*(\d+)/);
+    const ang={};
+    head.split('\n').forEach(l=>{const t=l.match(/^\s*(\d+)\s*==>\s*(-?[\d.,]+)\s*$/);if(t)ang[+t[1]]=parseFloat(t[2].replace(',','.'))});
+    const digs=data.replace(/[^0-9]/g,'');
+    const s=new Uint8Array(digs.length);for(let k=0;k<digs.length;k++)s[k]=digs.charCodeAt(k)-48;
+    const M=m?+m[1]:(Object.keys(ang).length||8);
+    out.push({M,ang,s});
+  }
+  return out;
+}
+function hist(s,M){const h=new Array(M).fill(0);for(const v of s)if(v<M)h[v]++;return h}
+function syncRuns(s,M,minrun){
+  const half=M/2,cand=[];
+  for(let v=0;v<half;v++){let st=-1;
+    for(let i=0;i<=s.length;i++){const ok=i<s.length&&(s[i]===v||s[i]===v+half);
+      if(ok&&st<0)st=i;else if(!ok&&st>=0){if(i-st>=minrun)cand.push([st,i-st,v]);st=-1}}}
+  cand.sort((a,b)=>b[1]-a[1]);const taken=[];
+  for(const c of cand){if(taken.every(t=>c[0]+c[1]<=t[0]||c[0]>=t[0]+t[1]))taken.push(c)}
+  return taken.sort((a,b)=>a[0]-b[0]);
+}
+function lagEq(s,lags){const o=[];for(const L of lags){const n=Math.min(s.length,200000)-L;if(n<=0)continue;let e=0;for(let i=0;i<n;i++)if(s[i+L]===s[i])e++;o.push([L,e/n])}return o}
+function profile(s,M,F){const nf=Math.floor(s.length/F);if(nf<2)return null;const c=new Float64Array(F);for(let f=1;f<nf;f++)for(let k=0;k<F;k++)if(s[f*F+k]===s[(f-1)*F+k])c[k]++;return {p:Array.from(c,x=>x/(nf-1))}}
+
+function setup(c,w,h){const r=window.devicePixelRatio||1;c.width=w*r;c.height=h*r;c.style.width=w+'px';c.style.height=h+'px';const g=c.getContext('2d');g.setTransform(r,0,0,r,0,0);return g}
+function hue(v,M){return `hsl(${Math.round(v/M*360)},62%,${document.documentElement.matches('[data-theme=dark]')||matchMedia('(prefers-color-scheme: dark)').matches&&!document.documentElement.matches('[data-theme=light]')?58:46}%)`}
+
+const SKEY='sa_symsets';
+function getStore(){try{return JSON.parse(localStorage.getItem(SKEY)||'{}')||{}}catch(e){return null}}
+function packSyms(s,bits){const nb=Math.ceil(s.length*bits/8),out=new Uint8Array(nb);let bp=0;for(let i=0;i<s.length;i++){const v=s[i];for(let b=bits-1;b>=0;b--){if((v>>b)&1)out[bp>>3]|=128>>(bp&7);bp++}}let str='';for(let i=0;i<nb;i+=8192)str+=String.fromCharCode.apply(null,out.subarray(i,i+8192));return btoa(str)}
+function unpackSyms(b64,n,bits){const str=atob(b64),s=new Uint8Array(n);let bp=0;for(let i=0;i<n;i++){let v=0;for(let b=0;b<bits;b++){v=(v<<1)|((str.charCodeAt(bp>>3)>>(7-(bp&7)))&1);bp++}s[i]=v}return s}
+function saveMsg(t){const e=$('savemsg');if(e)e.textContent=t}
+function refreshSaved(sel){
+  const st=getStore(),el=$('saved');if(!el)return;
+  if(st===null){el.innerHTML='';saveMsg('Este navegador no permite guardar datos.');return}
+  const names=Object.keys(st).sort((a,b)=>st[b].t-st[a].t);
+  el.innerHTML=names.length?names.map(n=>{const tot=st[n].dumps.reduce((a,d)=>a+d.n,0);return `<option value="${encodeURIComponent(n)}">${n.replace(/</g,'&lt;')} (${tot.toLocaleString('es')} símbolos)</option>`}).join(''):'<option value="">(ninguno)</option>';
+  if(sel)el.value=encodeURIComponent(sel);
+}
+function doSave(){
+  const name=$('name').value.trim();
+  if(!name){saveMsg('Escribe un nombre para guardar.');return}
+  if(!D.length){saveMsg('No hay datos cargados.');return}
+  const st=getStore();if(st===null){saveMsg('Este navegador no permite guardar datos.');return}
+  st[name]={t:Date.now(),dumps:D.map(d=>{const bits=Math.max(1,Math.ceil(Math.log2(d.M)));return {M:d.M,ang:d.ang,n:d.s.length,bits,b:packSyms(d.s,bits)}})};
+  try{localStorage.setItem(SKEY,JSON.stringify(st))}catch(e){saveMsg('No se ha podido guardar: almacenamiento del navegador lleno o bloqueado.');return}
+  const kb=Math.round(JSON.stringify(st[name]).length/1024);
+  refreshSaved(name);saveMsg('Guardado «'+name+'» ('+D.length+' volcado'+(D.length>1?'s':'')+', unos '+kb+' KB). Solo queda en este navegador.');
+}
+function doLoadSaved(){
+  const name=decodeURIComponent($('saved').value||'');const st=getStore();
+  if(!name||!st||!st[name]){saveMsg('No hay nada que cargar.');return}
+  const ds=st[name].dumps.map(d=>({M:d.M,ang:d.ang,s:unpackSyms(d.b,d.n,d.bits)}));
+  sampleMode=false;$('name').value=name;setDs(ds,'Guardado: '+name);saveMsg('');
+}
+function doDelSaved(){
+  const name=decodeURIComponent($('saved').value||'');const st=getStore();
+  if(!name||!st||!st[name])return;delete st[name];
+  try{localStorage.setItem(SKEY,JSON.stringify(st))}catch(e){}
+  refreshSaved();saveMsg('Borrado «'+name+'».');
+}
+function ensureUI(){
+  if(!document.getElementById('fstrip')){
+    const cv=$('raster');const st=document.createElement('div');st.id='fstrip';cv.parentElement.appendChild(st);
+    const ctl=$('cmode').parentElement.parentElement;const lb=document.createElement('label');lb.innerHTML='Inicio de trama (desplazamiento)<input id="off" type="number" value="0" min="0" max="4095">';ctl.appendChild(lb);
+    $('off').addEventListener('input',draw);
+    const sv=document.createElement('div');sv.innerHTML='<div class="row" style="margin-top:8px"><label>Nombre<input id="name" type="text" placeholder="p. ej. SIGNAL2" style="width:170px"></label><button id="save" class="sec" type="button">Guardar datos</button><label>Guardados<select id="saved" style="min-width:200px"></select></label><button id="loadsaved" type="button">Cargar guardado</button><button id="delsaved" class="sec" type="button">Borrar</button></div><p id="savemsg" class="note"></p>';
+    $('src').insertAdjacentElement('afterend',sv);
+    $('save').onclick=doSave;$('loadsaved').onclick=doLoadSaved;$('delsaved').onclick=doDelSaved;refreshSaved();
+}
+}
+function autoOff(d,F,runs){const c={};runs.filter(r=>r[1]>=60).forEach(r=>{const k=r[0]%F;c[k]=(c[k]||0)+1});const ks=Object.keys(c).sort((a,b)=>c[b]-c[a]);return ks.length?+ks[0]:0}
+const SEG=[['Preámbulo 2-PSK',80,'p'],['D',32,'d'],['S',16,'s'],['D',32,'d'],['S',16,'s'],['D',32,'d'],['S',16,'s'],['D',32,'d']];
+function drawStrip(F,px){
+  const el=$('fstrip');if(!el)return;
+  if(F!==256){el.innerHTML='<p class="note">El diagrama de trama del STANAG 4285 se dibuja con ancho de trama 256.</p>';return}
+  const acc=css('--accent'),cur=css('--cursor'),gr=css('--grid'),ink=css('--ink'),bg=css('--bg'),mut=css('--muted');
+  const segs=SEG.map(s=>{const w=s[1]*px,c=s[2]==='p'?acc:s[2]==='s'?cur:gr,t=s[2]==='d'?ink:bg;
+    return `<div style="width:${w}px;flex:none;box-sizing:border-box;background:${c};color:${t};border-left:1px solid ${bg};height:26px;line-height:26px;text-align:center;overflow:hidden;white-space:nowrap">${s[0]}${s[2]==='p'?' · 80':s[2]==='d'?' 32':' 16'}</div>`}).join('');
+  const br=(w,txt,mt)=>`<div style="width:${w}px;flex:none;box-sizing:border-box;border:1px solid ${mut};border-top:none;padding:4px 6px 6px;text-align:center;color:${ink};line-height:1.35;margin-top:${mt}px">${txt}</div>`;
+  el.innerHTML=`<div style="display:flex;width:${256*px}px;font:11px var(--mono);margin-top:4px">${segs}</div>`+
+   `<div style="display:flex;width:${256*px}px;font:11px var(--mono)">${br(80*px,'<b>80 símbolos</b><br>preámbulo 2-PSK',2)}${br(176*px,'<b>176 símbolos</b>, bloques de datos:<br>4 × 32 símbolos, segmentos de datos (D)<br>3 × 16 símbolos, sonda de canal (S)',2)}</div>`+
+   `<div style="display:flex;width:${256*px}px;font:11px var(--mono)">${br(256*px,'<b>256 símbolos</b>, trama',4)}</div>`;
+}
+function run(){
+  if(!D.length)return;
+  const d=D[+$('dsel').value||0];cur=d;
+  const F=Math.max(8,+$('frame').value||256),mr=Math.max(8,+$('minrun').value||40);
+  const lags=$('lags').value.split(/[\s,]+/).map(Number).filter(x=>x>0);
+  const M=d.M,s=d.s;
+  d.runs=syncRuns(s,M,mr);d.h=hist(s,M);d.lag=lagEq(s,lags);d.prof=profile(s,M,F);d.F=F;ensureUI();$('off').value=autoOff(d,F,d.runs);
+  const full=d.runs.filter(r=>r[1]>=75&&r[1]<=85).length;
+  const dom={};d.runs.forEach(r=>dom[r[2]]=(dom[r[2]]||0)+r[1]);
+  const domv=Object.keys(dom).sort((a,b)=>dom[b]-dom[a])[0];
+  d.pair=+domv||0;const npairs=Object.keys(dom).length;
+  const lagF=d.lag.find(x=>x[0]===F);
+  const cards=[[s.length.toLocaleString('es'),'símbolos'],['n-Ary '+M,'fases'],[d.runs.length,'tramos de sincronismo'],[full,'tramos de 75 a 85 símbolos'],
+    [lagF?(lagF[1]*100).toFixed(1)+' %':'—','coincidencia a lag '+F+' (azar '+(100/M).toFixed(1)+' %)'],[domv!==undefined?'{'+domv+','+(+domv+M/2)+'}':'—','par más frecuente en los tramos ('+npairs+' pares distintos)']];
+  $('cards').innerHTML=cards.map(c=>`<div class="card"><b>${c[0]}</b><span>${c[1]}</span></div>`).join('');
+  const maxRow=Math.max(0,Math.ceil(s.length/F)-120);$('rowoff').max=maxRow;if(+$('rowoff').value>maxRow)$('rowoff').value=0;
+  $('rtag').hidden=!sampleMode;
+  draw();
+  const rows=d.runs.slice(0,400).map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>{${r[2]},${r[2]+M/2}}</td><td>${r[0]%F}</td></tr>`).join('');
+  $('runs').innerHTML=`<tr><th>inicio</th><th>longitud</th><th>valores</th><th>posición en trama</th></tr>`+rows;
+  $('runnote').textContent=d.runs.length>400?`Se muestran 400 de ${d.runs.length}.`:`${d.runs.length} tramos.`;
+}
+function draw(){
+  const d=cur;if(!d)return;const M=d.M,F=d.F,s=d.s,fg=css('--fg'),mut=css('--mut'),grid=css('--grid'),acc=css('--acc'),acc2=css('--acc2');
+  // raster
+  const px=Math.max(1,Math.min(4,Math.floor(900/F))),off=Math.max(0,+($('off')||{}).value||0),rows=Math.min(120,Math.ceil((s.length-off)/F)),r0=+$('rowoff').value;
+  $('rowlab').textContent=r0+' de '+Math.ceil(s.length/F);
+  const g=setup($('raster'),F*px,rows*px);const mode=$('cmode').value;
+  g.fillStyle=css('--bg');g.fillRect(0,0,F*px,rows*px);
+  let pair=d.pair||0;
+  const cols=[];for(let v=0;v<M;v++)cols.push(hue(v,M));
+  for(let r=0;r<rows;r++)for(let k=0;k<F;k++){const i=(r0+r)*F+k+off;if(i>=s.length)break;const v=s[i];
+    g.fillStyle=mode==='val'?cols[v]:((v===pair||v===pair+M/2)?acc:grid);g.fillRect(k*px,r*px,px,px)}
+  drawStrip(F,px);
+  $('legend').innerHTML=mode==='val'?cols.map((c,v)=>`<span><i style="background:${c}"></i>${v}${d.ang[v]!==undefined?' · '+d.ang[v]+'°':''}</span>`).join(''):`<span><i style="background:${acc}"></i>{${pair},${pair+M/2}}</span><span><i style="background:${grid};border:1px solid ${mut}"></i>otros valores</span>`;
+  // hist
+  const W=Math.min(460,Math.max(280,$('hist').parentElement.clientWidth-4)),H=190;let h=setup($('hist'),W,H);
+  const mx=Math.max(...d.h,1),bw=(W-40)/M;h.font='11px '+css('--mono');
+  h.strokeStyle=grid;h.beginPath();[0,.5,1].forEach(f=>{const y=H-24-(H-44)*f;h.moveTo(34,y);h.lineTo(W,y)});h.stroke();
+  d.h.forEach((c,v)=>{const bh=(H-44)*c/mx;h.fillStyle=cols[v];h.fillRect(38+v*bw+3,H-24-bh,bw-6,bh);h.fillStyle=mut;h.textAlign='center';h.fillText(v,38+v*bw+bw/2,H-8)});
+  h.textAlign='right';h.fillStyle=mut;h.fillText(mx.toLocaleString('es'),32,16);h.fillText('0',32,H-22);
+  const tot=d.h.reduce((a,b)=>a+b,0);$('histnote').textContent='Reparto máximo/mínimo: '+(Math.max(...d.h)/Math.max(1,Math.min(...d.h))).toFixed(2)+'. Con símbolos uniformes, '+(100/M).toFixed(1)+' % cada valor.';
+  // lag
+  h=setup($('lagc'),W,H);const lg=d.lag;
+  if(lg.length){const bw2=(W-40)/lg.length;h.strokeStyle=grid;h.beginPath();[0,.25,.5,.75,1].forEach(f=>{const y=H-24-(H-44)*f;h.moveTo(34,y);h.lineTo(W,y)});h.stroke();
+    lg.forEach(([L,v],i)=>{const bh=(H-44)*v;h.fillStyle=acc;h.fillRect(38+i*bw2+6,H-24-bh,bw2-12,bh);h.fillStyle=mut;h.textAlign='center';h.fillText('L='+L,38+i*bw2+bw2/2,H-8);h.fillStyle=fg;h.fillText((v*100).toFixed(0)+'%',38+i*bw2+bw2/2,H-28-bh)});
+    const ay=H-24-(H-44)/M;h.strokeStyle=acc2;h.setLineDash([4,3]);h.beginPath();h.moveTo(34,ay);h.lineTo(W,ay);h.stroke();h.setLineDash([]);h.fillStyle=acc2;h.textAlign='left';h.fillText('azar '+(100/M).toFixed(1)+'%',40,ay-4);
+    h.textAlign='right';h.fillStyle=mut;h.fillText('100%',32,16);h.fillText('0',32,H-22)}
+  $('lagnote').textContent='Si hay un código que se repite a intervalos fijos, la coincidencia sube sobre el nivel de azar en ese lag.';
+  // profile
+  const PW=Math.max(300,Math.min(1040,$('prof').parentElement.clientWidth-4)),PH=170;h=setup($('prof'),PW,PH);
+  if(d.prof){const p=d.prof.p,n=p.length,bw3=(PW-40)/n;h.strokeStyle=grid;h.beginPath();[0,.5,1].forEach(f=>{const y=PH-24-(PH-44)*f;h.moveTo(34,y);h.lineTo(PW,y)});h.stroke();
+    h.fillStyle=acc;p.forEach((v,k)=>{const bh=(PH-44)*v;h.fillRect(38+k*bw3,PH-24-bh,Math.max(1,bw3-.5),bh)});
+    const ay=PH-24-(PH-44)*(1/M);h.strokeStyle=acc2;h.setLineDash([4,3]);h.beginPath();h.moveTo(34,ay);h.lineTo(PW,ay);h.stroke();h.setLineDash([]);
+    h.font='11px '+css('--mono');h.fillStyle=mut;h.textAlign='center';[0,Math.floor(n/4),Math.floor(n/2),Math.floor(3*n/4),n-1].forEach(k=>{h.textAlign=k===n-1?'right':'center';h.fillText(k,Math.min(PW-2,38+k*bw3),PH-8)});
+    h.textAlign='right';h.fillText('100%',32,16);h.fillText('0',32,PH-22)}
+}
+function load(text,label){const ds=parse(text);if(!ds.length){$('src').textContent='No se ha encontrado ninguna línea Data: en ese texto.';return}
+  setDs(ds,label)}
+function setDs(ds,label){D=ds;$('dsel').innerHTML=ds.map((d,i)=>`<option value="${i}">Volcado ${i+1} (${d.s.length.toLocaleString('es')} símbolos)</option>`).join('');
+  $('src').textContent=label;run()}
+$('go').onclick=()=>{sampleMode=false;load($('paste').value,'Texto pegado.')};
+$('sample').onclick=()=>{sampleMode=true;load(SAMPLE,'Ejemplo: 12 000 símbolos de un volcado de SIGNAL2 (STANAG 4285, n-Ary 8), tomados desde el símbolo 2900.')};
+function readFile(f){$('name').value=f.name.replace(/\.[^.]+$/,'');const r=new FileReader();r.onload=()=>{sampleMode=false;load(r.result,'Fichero: '+f.name)};r.readAsText(f)}
+$('file').onchange=e=>e.target.files[0]&&readFile(e.target.files[0]);
+const dp=$('drop');['dragover','dragenter'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.add('on')}));
+['dragleave','drop'].forEach(ev=>dp.addEventListener(ev,e=>{e.preventDefault();dp.classList.remove('on')}));
+dp.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];f&&readFile(f)});
+['dsel','frame','minrun','lags'].forEach(i=>$(i).addEventListener('change',run));
+$('cmode').onchange=draw;$('rowoff').oninput=draw;
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+window.addEventListener('resize',()=>{clearTimeout(window._t);window._t=setTimeout(draw,120)});
+$('sample').click();
+</script>
+
+</body></html>
